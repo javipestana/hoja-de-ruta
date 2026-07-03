@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Creador de Hojas de Ruta de Eventos</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --ink: #1a1d24;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --accent: #2f6df6;
+    --accent-soft: #e8f0fe;
+    --pend: #9ca3af;
+    --curso: #f59e0b;
+    --hecho: #22a06b;
+    --danger: #e5484d;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 20px 20px 80px; }
+
+  /* Top bar */
+  .topbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+    margin-bottom: 18px;
+  }
+  .topbar h1 { font-size: 18px; margin: 0; font-weight: 700; letter-spacing: -.2px; }
+  .topbar .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .grow { flex: 1; }
+
+  select, input, textarea, button {
+    font-family: inherit; font-size: 14px; color: var(--ink);
+  }
+  .field {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 9px; padding: 8px 10px; outline: none; width: 100%;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .field:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  .btn {
+    border: 1px solid var(--line); background: var(--panel);
+    border-radius: 9px; padding: 8px 12px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px; font-weight: 600;
+    transition: background .15s, border-color .15s, transform .05s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: #f0f2f5; }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: #2559d6; }
+  .btn.ghost { background: transparent; }
+  .btn.danger { color: var(--danger); }
+  .btn.small { padding: 5px 9px; font-size: 12.5px; }
+
+  /* Event management row */
+  .eventbar {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 14px 16px; margin-bottom: 16px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  }
+  .eventbar select { min-width: 220px; }
+  .eventmeta { display: flex; gap: 10px; flex: 1; min-width: 240px; }
+
+  /* Form card */
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 16px; margin-bottom: 18px;
+  }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin: 0 0 12px; }
+  .form-grid {
+    display: grid; gap: 10px;
+    grid-template-columns: repeat(12, 1fr);
+  }
+  .form-grid label { display: block; font-size: 11.5px; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
+  .c2 { grid-column: span 2; } .c3 { grid-column: span 3; } .c4 { grid-column: span 4; }
+  .c5 { grid-column: span 5; } .c6 { grid-column: span 6; } .c12 { grid-column: span 12; }
+  @media (max-width: 720px) {
+    .c2,.c3,.c4,.c5,.c6 { grid-column: span 6; }
+  }
+  .form-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+  /* Toolbar above table */
+  .tabletools {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px;
+  }
+  .tabletools .search { max-width: 240px; }
+  .count-pill { background: var(--accent-soft); color: var(--accent); border-radius: 20px; padding: 3px 10px; font-size: 12px; font-weight: 700; }
+
+  /* Day group */
+  .daygroup { margin-bottom: 22px; }
+  .dayhead {
+    display: flex; align-items: baseline; gap: 10px;
+    padding: 8px 4px; border-bottom: 2px solid var(--ink); margin-bottom: 2px;
+  }
+  .dayhead .d-main { font-size: 16px; font-weight: 800; letter-spacing: -.2px; text-transform: capitalize; }
+  .dayhead .d-count { color: var(--muted); font-size: 12px; }
+
+  /* Table */
+  table.roadmap { width: 100%; border-collapse: collapse; }
+  table.roadmap thead th {
+    text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+    color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--line); font-weight: 700;
+  }
+  table.roadmap tbody tr { border-bottom: 1px solid var(--line); }
+  table.roadmap tbody tr:hover { background: #fafbfc; }
+  table.roadmap td { padding: 10px; vertical-align: top; }
+
+  .col-time { width: 96px; }
+  .time-start { font-size: 20px; font-weight: 800; letter-spacing: -.5px; line-height: 1.1; }
+  .time-end { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .time-dur { font-size: 11px; color: var(--muted); }
+
+  .action-title { font-weight: 700; font-size: 14.5px; }
+  .action-notes { color: var(--muted); font-size: 12.5px; margin-top: 3px; white-space: pre-wrap; }
+
+  .chip {
+    display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 700;
+    color: #fff; white-space: nowrap;
+  }
+  .meta-line { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+  .meta-line strong { color: var(--ink); font-weight: 600; }
+
+  .status {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700;
+    padding: 3px 10px; border-radius: 20px;
+  }
+  .status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .status.pendiente { color: var(--pend); background: #f3f4f6; }
+  .status.en-curso { color: #b45309; background: #fef3c7; }
+  .status.hecho { color: #15803d; background: #dcfce7; }
+
+  .row-actions { display: flex; gap: 4px; }
+  .icon-btn {
+    border: none; background: transparent; cursor: pointer; padding: 5px; border-radius: 7px;
+    color: var(--muted); font-size: 13px;
+  }
+  .icon-btn:hover { background: #eef0f3; color: var(--ink); }
+  .icon-btn.del:hover { color: var(--danger); }
+
+  .empty {
+    text-align: center; color: var(--muted); padding: 50px 20px;
+    background: var(--panel); border: 1px dashed var(--line); border-radius: var(--radius);
+  }
+  .empty h3 { margin: 0 0 6px; color: var(--ink); }
+
+  .footer-note { text-align: center; color: var(--muted); font-size: 11.5px; margin-top: 30px; }
+
+  /* View toggle */
+  .viewbar { display: inline-flex; background: #eef0f3; border-radius: 10px; padding: 3px; gap: 2px; margin-bottom: 14px; }
+  .vbtn { border: none; background: transparent; padding: 7px 15px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 13px; color: var(--muted); }
+  .vbtn.active { background: #fff; color: var(--ink); box-shadow: var(--shadow); }
+
+  /* Grid (days x hours) view */
+  .grid-scroll { overflow: auto; border-radius: 12px; }
+  .grid-wrap { display: grid; gap: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff; min-width: 620px; }
+  .grid-dhead, .grid-corner, .grid-allday-cell, .grid-col, .grid-gutter, .grid-gutter-allday { border-right: 1px solid var(--line); }
+  .grid-wrap > div:last-child { border-right: none; }
+  .grid-dhead { padding: 8px 6px; text-align: center; font-weight: 800; font-size: 12.5px; border-bottom: 2px solid var(--ink); text-transform: capitalize; background: #fafbfc; line-height: 1.2; }
+  .grid-dhead small { display: block; color: var(--muted); font-weight: 600; font-size: 11px; }
+  .grid-corner { border-bottom: 2px solid var(--ink); background: #fafbfc; }
+  .grid-gutter-allday, .grid-allday-cell { border-bottom: 1px solid var(--line); background: #fcfcfd; padding: 4px; min-height: 34px; }
+  .grid-gutter-allday { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; display: flex; align-items: center; justify-content: center; font-weight: 700; text-align: center; }
+  .grid-gutter { position: relative; background: #fafbfc; width: 58px; }
+  .grid-col { position: relative; }
+  .hourline { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line); pointer-events: none; }
+  .hourlabel { position: absolute; right: 6px; font-size: 10px; color: var(--muted); transform: translateY(-6px); font-variant-numeric: tabular-nums; }
+  .gblock { position: absolute; border-radius: 6px; padding: 3px 6px; color: #fff; overflow: hidden; font-size: 11px; line-height: 1.2; box-shadow: 0 1px 2px rgba(0,0,0,.18); cursor: pointer; }
+  .gblock .gt { font-weight: 800; font-variant-numeric: tabular-nums; }
+  .gblock .ga { font-weight: 600; }
+  .allday-chip { display: block; margin: 2px 0; padding: 3px 8px; border-radius: 8px; color: #fff; font-size: 10.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Modal / preview */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(20,24,33,.45); display: flex; align-items: flex-start; justify-content: center; padding: 24px; z-index: 50; overflow: auto; }
+  .modal-box { background: #fff; border-radius: 14px; max-width: 1120px; width: 100%; box-shadow: 0 24px 70px rgba(0,0,0,.35); margin-bottom: 40px; }
+  .modal-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: #fff; border-radius: 14px 14px 0 0; z-index: 2; }
+  .modal-head .m-title { font-size: 15px; font-weight: 700; }
+  .modal-head .m-actions { display: flex; gap: 8px; }
+  .modal-body { padding: 18px; background: #f1f3f6; border-radius: 0 0 14px 14px; }
+  .page { background: #fff; border: 1px solid var(--line); box-shadow: 0 2px 10px rgba(0,0,0,.10); padding: 22px; border-radius: 6px; }
+  .page .print-head h1 { margin: 0 0 4px; font-size: 22px; }
+  .page .print-head .meta { color: #444; font-size: 13px; margin-bottom: 14px; }
+  .xls-table { width: 100%; border-collapse: collapse; background: #fff; font-size: 12.5px; }
+  .xls-table th { background: #217346; color: #fff; padding: 7px 9px; text-align: left; font-weight: 600; position: sticky; top: 52px; }
+  .xls-table td { border: 1px solid #d7dbe0; padding: 6px 9px; vertical-align: top; }
+  .xls-table tr:nth-child(even) td { background: #f6f8f9; }
+  .xls-scroll { overflow: auto; max-height: 62vh; border: 1px solid var(--line); border-radius: 8px; }
+  .modal-body .page + .page { margin-top: 18px; }
+  .print-page { background: #fff; }
+
+  /* Print / PDF */
+  @page { size: A4 portrait; margin: 12mm; }
+  @media print {
+    body { background: #fff; font-size: 11px; margin: 0; }
+    .wrap { max-width: none; padding: 0; }
+    .no-print { display: none !important; }
+    .print-only { display: block !important; }
+    .card, .eventbar, .tabletools, .viewbar, .modal-overlay { display: none !important; }
+    .daygroup { break-inside: avoid; }
+    table.roadmap tbody tr { break-inside: avoid; }
+    .dayhead { border-bottom: 2px solid #000; }
+    .time-start { font-size: 15px; }
+    .chip { border: 1px solid #999; color: #000 !important; background: #fff !important; }
+    .status { border: 1px solid #999; }
+  }
+  .print-only { display: none; }
+  .print-head { margin-bottom: 14px; }
+  .print-head .ph-top { margin-bottom: 8px; }
+  .print-head .ph-logo { height: 34px; width: auto; }
+  .print-head .ph-logo-txt { font-size: 10.5px; font-weight: 800; letter-spacing: 1.5px; color: #999; border: 1px dashed #bbb; display: inline-block; padding: 4px 9px; border-radius: 4px; }
+  .print-head h1 { margin: 0 0 4px; font-size: 24px; letter-spacing: -.3px; }
+  .print-head .meta { color: #444; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar no-print">
+    <div>
+      <h1>Creador de Hojas de Ruta de Eventos</h1>
+      <div class="sub">Escaleta cronológica de acciones por equipo · guardado automáticamente en este navegador</div>
+    </div>
+    <div class="grow"></div>
+    <button class="btn" id="btnExportCsv">⬇︎ Excel (CSV)</button>
+    <button class="btn" id="btnPrint">🖨 PDF imprimible</button>
+  </div>
+
+  <!-- Event management -->
+  <div class="eventbar no-print">
+    <div>
+      <label style="font-size:11.5px;color:var(--muted);font-weight:600;display:block;margin-bottom:4px;">Evento</label>
+      <select class="field" id="eventSelect"></select>
+    </div>
+    <div class="eventmeta">
+      <div style="flex:2;">
+        <label style="font-size:11.5px;color:var(--muted);font-weight:600;display:block;margin-bottom:4px;">Nombre del evento</label>
+        <input class="field" id="eventName" placeholder="Ej. Festival de Verano 2026">
+      </div>
+      <div style="flex:2;">
+        <label style="font-size:11.5px;color:var(--muted);font-weight:600;display:block;margin-bottom:4px;">Recinto / lugar</label>
+        <input class="field" id="eventPlace" placeholder="Ej. Auditorio Alfredo Kraus">
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;align-self:flex-end;">
+      <button class="btn small" id="btnNewEvent">＋ Nuevo</button>
+      <button class="btn small" id="btnDupEvent">⧉ Duplicar</button>
+      <button class="btn small danger" id="btnDelEvent">🗑 Borrar</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;align-self:flex-end;">
+      <label style="font-size:11.5px;color:var(--muted);font-weight:600;">Logo (impresión)</label>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <img id="logoPreview" alt="logo" style="height:26px;width:auto;display:none;border:1px solid var(--line);border-radius:4px;padding:2px;background:#fff;">
+        <label class="btn small ghost" style="cursor:pointer;">📎 Subir<input type="file" id="logoFile" accept="image/*" style="display:none;"></label>
+        <button class="btn small ghost danger" id="logoRemove" style="display:none;">Quitar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import panel -->
+  <div class="card no-print" id="importCard">
+    <div style="display:flex;align-items:center;gap:10px;cursor:pointer;" id="importToggle">
+      <h2 style="margin:0;">📥 Importar desde otra hoja</h2>
+      <span id="importChevron" style="color:var(--muted);">▸ abrir</span>
+    </div>
+    <div id="importBody" style="display:none;margin-top:12px;">
+      <p style="color:var(--muted);font-size:12.5px;margin:0 0 10px;">
+        Pega el contenido de tu hoja (showtime, soundcheck, tabla de Excel/Word, o texto) o suelta un archivo <strong>.csv / .txt</strong>.
+        Para <strong>PDF / Word / Excel</strong>: ábrelo, copia el contenido y pégalo aquí, o pídeselo a Claude en el chat para que lo convierta.
+      </p>
+      <div id="dropZone" style="border:1px dashed var(--line);border-radius:10px;padding:0;">
+        <textarea id="importText" class="field" style="border:none;min-height:120px;resize:vertical;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;" placeholder="Pega aquí tu tabla…&#10;Ej.:&#10;ORDEN  ARTISTA  SHOWTIME  DURACIÓN&#10;1  DJ SET  17:00 - 17:30  30'"></textarea>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center;">
+        <button class="btn primary" id="btnParseLocal">Analizar texto</button>
+        <button class="btn" id="btnParseAI">✨ Interpretar con IA</button>
+        <label class="btn ghost small" style="cursor:pointer;">📎 Archivo .csv/.txt
+          <input type="file" id="importFile" accept=".csv,.txt,text/*" style="display:none;">
+        </label>
+        <button class="btn ghost small" id="btnImportClear" style="margin-left:auto;">Limpiar</button>
+        <span id="importMsg" style="color:var(--muted);font-size:12px;"></span>
+      </div>
+      <div id="importPreview" style="margin-top:14px;"></div>
+    </div>
+  </div>
+
+  <!-- Add / edit form -->
+  <div class="card no-print">
+    <h2 id="formTitle">Añadir acción</h2>
+    <div class="form-grid">
+      <div class="c2">
+        <label>Fecha *</label>
+        <input class="field" type="date" id="fDate">
+      </div>
+      <div class="c2">
+        <label>Hora inicio *</label>
+        <input class="field" type="time" id="fStart">
+      </div>
+      <div class="c2">
+        <label>Hora fin</label>
+        <input class="field" type="time" id="fEnd">
+      </div>
+      <div class="c6">
+        <label>Acción *</label>
+        <input class="field" id="fAction" placeholder="Ej. Montaje de escenario principal">
+      </div>
+
+      <div class="c12" style="margin:-2px 0 2px;">
+        <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--ink);font-weight:600;">
+          <input type="checkbox" id="fAllDay" style="width:16px;height:16px;cursor:pointer;"> Todo el día / sin hora (montaje o tarea sin horario)
+        </label>
+      </div>
+
+      <div class="c4">
+        <label>Equipo / empresa *</label>
+        <input class="field" id="fTeam" list="teamList" placeholder="Ej. Sonido ProAudio">
+        <datalist id="teamList"></datalist>
+      </div>
+      <div class="c4">
+        <label>Ubicación / zona</label>
+        <input class="field" id="fLocation" placeholder="Ej. Escenario A / Backstage">
+      </div>
+      <div class="c2">
+        <label>Responsable</label>
+        <input class="field" id="fOwner" placeholder="Nombre">
+      </div>
+      <div class="c2">
+        <label>Contacto</label>
+        <input class="field" id="fContact" placeholder="Tel / email">
+      </div>
+
+      <div class="c2">
+        <label>Estado</label>
+        <select class="field" id="fStatus">
+          <option value="pendiente">Pendiente</option>
+          <option value="en-curso">En curso</option>
+          <option value="hecho">Hecho</option>
+        </select>
+      </div>
+      <div class="c10 c12" style="grid-column: span 10;">
+        <label>Notas</label>
+        <input class="field" id="fNotes" placeholder="Observaciones, material, dependencias…">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn primary" id="btnSave">Añadir a la hoja de ruta</button>
+      <button class="btn ghost" id="btnCancelEdit" style="display:none;">Cancelar edición</button>
+      <span id="formHint" style="color:var(--muted);font-size:12px;align-self:center;"></span>
+    </div>
+  </div>
+
+  <!-- Table tools -->
+  <div class="tabletools no-print">
+    <span class="count-pill" id="countPill">0 acciones</span>
+    <input class="field search" id="search" placeholder="🔎 Buscar acción, equipo, zona…">
+    <select class="field" id="filterTeam" style="max-width:200px;"><option value="">Todos los equipos</option></select>
+    <div class="grow"></div>
+    <button class="btn small ghost" id="btnSeed">Cargar ejemplo</button>
+    <button class="btn small ghost danger" id="btnClearAll">Vaciar hoja</button>
+  </div>
+
+  <!-- View toggle -->
+  <div class="viewbar no-print">
+    <button class="vbtn" id="vbList">☰ Lista cronológica</button>
+    <button class="vbtn" id="vbGrid">▦ Parrilla (días × horas)</button>
+  </div>
+
+  <!-- Print header (only when printing) -->
+  <div class="print-only print-head" id="printHead"></div>
+
+  <!-- Roadmap render target -->
+  <div id="roadmap"></div>
+
+  <div class="footer-note no-print">Los datos se guardan en este navegador (localStorage). Exporta a Excel o PDF para compartir o archivar.</div>
+
+  <!-- Preview modal -->
+  <div class="modal-overlay no-print" id="modal" style="display:none;">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="m-title" id="modalTitle"></span>
+        <div class="m-actions">
+          <button class="btn primary small" id="modalAction"></button>
+          <button class="btn ghost small" id="modalClose">Cerrar</button>
+        </div>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var LS_KEY = "eventRoadmap.v1";
+  var PALETTE = ["#2f6df6","#e5484d","#22a06b","#f59e0b","#8b5cf6","#0ea5e9","#ec4899","#14b8a6","#f97316","#6366f1","#84cc16","#d946ef"];
+
+  var state = load();
+  if (state.viewMode !== "grid") state.viewMode = "list";
+  var editingId = null;
+
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(LS_KEY);
+      if (raw) { var p = JSON.parse(raw); if (p && p.events) return p; }
+    } catch (e) {}
+    var id = uid();
+    return { currentEventId: id, events: [{ id: id, name: "Mi evento", place: "", actions: [] }] };
+  }
+  function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {} }
+
+  function currentEvent() {
+    var ev = state.events.find(function (e) { return e.id === state.currentEventId; });
+    if (!ev) { ev = state.events[0]; state.currentEventId = ev.id; }
+    return ev;
+  }
+
+  function teamColor(name) {
+    if (!name) return "#9ca3af";
+    var h = 0; for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+    return PALETTE[h % PALETTE.length];
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function durationText(start, end) {
+    if (!start || !end) return "";
+    var a = start.split(":"), b = end.split(":");
+    if (a.length < 2 || b.length < 2) return "";
+    var m = (parseInt(b[0], 10) * 60 + parseInt(b[1], 10)) - (parseInt(a[0], 10) * 60 + parseInt(a[1], 10));
+    if (isNaN(m) || m <= 0) return "";
+    var h = Math.floor(m / 60), mm = m % 60;
+    return (h ? h + "h" : "") + (mm ? (h ? " " : "") + mm + "min" : (h ? "" : ""));
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return "Sin fecha";
+    var d = new Date(iso + "T00:00:00");
+    if (isNaN(d)) return iso;
+    return d.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  }
+
+  // ---------- Rendering ----------
+  function render() {
+    renderEventControls();
+    populateTeamHelpers();
+    renderViewbar();
+    if (state.viewMode === "grid") { renderGrid(); } else { renderList(); }
+  }
+
+  function visibleRows() {
+    var ev = currentEvent();
+    var q = (document.getElementById("search").value || "").toLowerCase().trim();
+    var tf = document.getElementById("filterTeam").value;
+    var rows = ev.actions.slice().filter(function (a) {
+      if (tf && a.team !== tf) return false;
+      if (!q) return true;
+      return [a.action, a.team, a.location, a.owner, a.contact, a.notes].join(" ").toLowerCase().indexOf(q) !== -1;
+    });
+    rows.sort(function (a, b) {
+      var da = (a.date || "9999-99-99"), db = (b.date || "9999-99-99");
+      if (da !== db) return da < db ? -1 : 1;
+      var sa = a.start || "99:99", sb = b.start || "99:99";
+      return sa < sb ? -1 : (sa > sb ? 1 : 0);
+    });
+    return rows;
+  }
+
+  function renderViewbar() {
+    document.getElementById("vbList").classList.toggle("active", state.viewMode !== "grid");
+    document.getElementById("vbGrid").classList.toggle("active", state.viewMode === "grid");
+  }
+
+  function renderList() {
+    var ev = currentEvent();
+    var q = (document.getElementById("search").value || "").toLowerCase().trim();
+    var teamFilter = document.getElementById("filterTeam").value;
+
+    var rows = ev.actions.slice().filter(function (a) {
+      if (teamFilter && a.team !== teamFilter) return false;
+      if (!q) return true;
+      return [a.action, a.team, a.location, a.owner, a.contact, a.notes].join(" ").toLowerCase().indexOf(q) !== -1;
+    });
+
+    rows.sort(function (a, b) {
+      var da = (a.date || "9999-99-99"), db = (b.date || "9999-99-99");
+      if (da !== db) return da < db ? -1 : 1;
+      var sa = a.start || "99:99", sb = b.start || "99:99";
+      return sa < sb ? -1 : (sa > sb ? 1 : 0);
+    });
+
+    document.getElementById("countPill").textContent = ev.actions.length + (ev.actions.length === 1 ? " acción" : " acciones");
+
+    var target = document.getElementById("roadmap");
+    if (rows.length === 0) {
+      target.innerHTML = '<div class="empty no-print"><h3>' +
+        (ev.actions.length === 0 ? "Aún no hay acciones" : "Ningún resultado con este filtro") + '</h3><p>' +
+        (ev.actions.length === 0 ? "Añade la primera acción arriba o pulsa “Cargar ejemplo”." : "Prueba a limpiar la búsqueda o el filtro de equipo.") +
+        '</p></div>';
+      return;
+    }
+
+    // group by date
+    var groups = [], map = {};
+    rows.forEach(function (a) {
+      var k = a.date || "";
+      if (!map[k]) { map[k] = { date: k, items: [] }; groups.push(map[k]); }
+      map[k].items.push(a);
+    });
+
+    var html = "";
+    groups.forEach(function (g) {
+      html += '<div class="daygroup"><div class="dayhead"><span class="d-main">' + esc(fmtDate(g.date)) +
+        '</span><span class="d-count">' + g.items.length + (g.items.length === 1 ? " acción" : " acciones") + '</span></div>';
+      html += '<table class="roadmap"><thead><tr>' +
+        '<th class="col-time">Hora</th><th>Acción</th><th>Equipo / empresa</th><th>Ubicación · Responsable</th><th>Estado</th><th class="no-print"></th>' +
+        '</tr></thead><tbody>';
+      g.items.forEach(function (a) {
+        var dur = durationText(a.start, a.end);
+        var color = teamColor(a.team);
+        html += '<tr>' +
+          '<td class="col-time"><div class="time-start">' + esc(a.start || "--:--") + '</div>' +
+            (a.end ? '<div class="time-end">→ ' + esc(a.end) + '</div>' : '') +
+            (dur ? '<div class="time-dur">' + esc(dur) + '</div>' : '') + '</td>' +
+          '<td><div class="action-title">' + esc(a.action || "(sin título)") + '</div>' +
+            (a.notes ? '<div class="action-notes">' + esc(a.notes) + '</div>' : '') + '</td>' +
+          '<td>' + (a.team ? '<span class="chip" style="background:' + color + '">' + esc(a.team) + '</span>' : '<span style="color:var(--muted)">—</span>') + '</td>' +
+          '<td>' + (a.location ? '<div>' + esc(a.location) + '</div>' : '') +
+            ((a.owner || a.contact) ? '<div class="meta-line"><strong>' + esc(a.owner || "") + '</strong>' + (a.contact ? ' · ' + esc(a.contact) : '') + '</div>' : '') +
+            (!a.location && !a.owner && !a.contact ? '<span style="color:var(--muted)">—</span>' : '') + '</td>' +
+          '<td><span class="status ' + esc(a.status || "pendiente") + '">' + statusLabel(a.status) + '</span></td>' +
+          '<td class="no-print"><div class="row-actions">' +
+            '<button class="icon-btn" data-edit="' + a.id + '" title="Editar">✏️</button>' +
+            '<button class="icon-btn del" data-del="' + a.id + '" title="Borrar">🗑</button></div></td>' +
+          '</tr>';
+      });
+      html += '</tbody></table></div>';
+    });
+    target.innerHTML = html;
+
+    target.querySelectorAll("[data-edit]").forEach(function (b) {
+      b.addEventListener("click", function () { startEdit(b.getAttribute("data-edit")); });
+    });
+    target.querySelectorAll("[data-del]").forEach(function (b) {
+      b.addEventListener("click", function () { delAction(b.getAttribute("data-del")); });
+    });
+  }
+
+  function statusLabel(s) {
+    return s === "hecho" ? "Hecho" : s === "en-curso" ? "En curso" : "Pendiente";
+  }
+
+  function renderEventControls() {
+    var sel = document.getElementById("eventSelect");
+    sel.innerHTML = state.events.map(function (e) {
+      return '<option value="' + e.id + '"' + (e.id === state.currentEventId ? " selected" : "") + '>' + esc(e.name || "Evento") + '</option>';
+    }).join("");
+    var ev = currentEvent();
+    document.getElementById("eventName").value = ev.name || "";
+    document.getElementById("eventPlace").value = ev.place || "";
+  }
+
+  function populateTeamHelpers() {
+    var ev = currentEvent();
+    var teams = {};
+    ev.actions.forEach(function (a) { if (a.team) teams[a.team] = true; });
+    var list = Object.keys(teams).sort();
+    document.getElementById("teamList").innerHTML = list.map(function (t) { return '<option value="' + esc(t) + '">'; }).join("");
+    var cur = document.getElementById("filterTeam").value;
+    document.getElementById("filterTeam").innerHTML = '<option value="">Todos los equipos</option>' +
+      list.map(function (t) { return '<option value="' + esc(t) + '"' + (t === cur ? " selected" : "") + '>' + esc(t) + '</option>'; }).join("");
+  }
+
+  // ---------- CRUD ----------
+  function toggleAllDay() {
+    var on = document.getElementById("fAllDay").checked;
+    var s = document.getElementById("fStart"), e = document.getElementById("fEnd");
+    s.disabled = on; e.disabled = on;
+    s.style.opacity = on ? .45 : 1; e.style.opacity = on ? .45 : 1;
+    if (on) { s.value = ""; e.value = ""; }
+  }
+  function readForm() {
+    var allDay = document.getElementById("fAllDay").checked;
+    return {
+      date: document.getElementById("fDate").value,
+      start: allDay ? "" : document.getElementById("fStart").value,
+      end: allDay ? "" : document.getElementById("fEnd").value,
+      action: document.getElementById("fAction").value.trim(),
+      team: document.getElementById("fTeam").value.trim(),
+      location: document.getElementById("fLocation").value.trim(),
+      owner: document.getElementById("fOwner").value.trim(),
+      contact: document.getElementById("fContact").value.trim(),
+      status: document.getElementById("fStatus").value,
+      notes: document.getElementById("fNotes").value.trim()
+    };
+  }
+  function clearForm() {
+    ["fEnd","fAction","fLocation","fOwner","fContact","fNotes"].forEach(function (id) { document.getElementById(id).value = ""; });
+    document.getElementById("fStatus").value = "pendiente";
+    document.getElementById("fAllDay").checked = false;
+    toggleAllDay();
+    // keep fDate, fStart, fTeam to speed up sequential entry
+  }
+  function saveAction() {
+    var d = readForm();
+    var allDay = document.getElementById("fAllDay").checked;
+    if (!d.date || !d.action || (!allDay && !d.start)) {
+      hint(allDay ? "Completa al menos la fecha y la acción." : "Completa fecha, hora de inicio y acción (o marca “Todo el día”).", true);
+      return;
+    }
+    var ev = currentEvent();
+    if (editingId) {
+      var it = ev.actions.find(function (a) { return a.id === editingId; });
+      if (it) Object.assign(it, d);
+      stopEdit();
+      hint("Acción actualizada.");
+    } else {
+      d.id = uid();
+      ev.actions.push(d);
+      hint("Acción añadida.");
+    }
+    clearForm();
+    save(); render();
+  }
+  function startEdit(id) {
+    var ev = currentEvent();
+    var a = ev.actions.find(function (x) { return x.id === id; });
+    if (!a) return;
+    editingId = id;
+    document.getElementById("fDate").value = a.date || "";
+    document.getElementById("fStart").value = a.start || "";
+    document.getElementById("fEnd").value = a.end || "";
+    document.getElementById("fAllDay").checked = !a.start;
+    toggleAllDay();
+    document.getElementById("fAction").value = a.action || "";
+    document.getElementById("fTeam").value = a.team || "";
+    document.getElementById("fLocation").value = a.location || "";
+    document.getElementById("fOwner").value = a.owner || "";
+    document.getElementById("fContact").value = a.contact || "";
+    document.getElementById("fStatus").value = a.status || "pendiente";
+    document.getElementById("fNotes").value = a.notes || "";
+    document.getElementById("formTitle").textContent = "Editar acción";
+    document.getElementById("btnSave").textContent = "Guardar cambios";
+    document.getElementById("btnCancelEdit").style.display = "";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  function stopEdit() {
+    editingId = null;
+    document.getElementById("formTitle").textContent = "Añadir acción";
+    document.getElementById("btnSave").textContent = "Añadir a la hoja de ruta";
+    document.getElementById("btnCancelEdit").style.display = "none";
+  }
+  function delAction(id) {
+    if (!confirm("¿Borrar esta acción?")) return;
+    var ev = currentEvent();
+    ev.actions = ev.actions.filter(function (a) { return a.id !== id; });
+    if (editingId === id) { stopEdit(); clearForm(); }
+    save(); render();
+  }
+  function hint(msg, warn) {
+    var el = document.getElementById("formHint");
+    el.textContent = msg; el.style.color = warn ? "var(--danger)" : "var(--muted)";
+    if (msg) setTimeout(function () { if (el.textContent === msg) el.textContent = ""; }, 3500);
+  }
+
+  // ---------- Events management ----------
+  function newEvent() {
+    var id = uid();
+    state.events.push({ id: id, name: "Nuevo evento", place: "", actions: [] });
+    state.currentEventId = id;
+    stopEdit(); save(); render();
+    document.getElementById("eventName").focus();
+  }
+  function dupEvent() {
+    var ev = currentEvent();
+    var id = uid();
+    var copy = { id: id, name: (ev.name || "Evento") + " (copia)", place: ev.place || "",
+      actions: ev.actions.map(function (a) { var c = Object.assign({}, a); c.id = uid(); return c; }) };
+    state.events.push(copy); state.currentEventId = id;
+    save(); render();
+  }
+  function delEvent() {
+    if (state.events.length === 1) { alert("Debe existir al menos un evento. Usa “Vaciar hoja” para borrar sus acciones."); return; }
+    var ev = currentEvent();
+    if (!confirm('¿Borrar el evento "' + (ev.name || "") + '" y todas sus acciones?')) return;
+    state.events = state.events.filter(function (e) { return e.id !== ev.id; });
+    state.currentEventId = state.events[0].id;
+    save(); render();
+  }
+
+  // ---------- Export ----------
+  function exportCsv() {
+    var ev = currentEvent();
+    var rows = ev.actions.slice().sort(function (a, b) {
+      var da = (a.date || "9999"), db = (b.date || "9999");
+      if (da !== db) return da < db ? -1 : 1;
+      return (a.start || "99:99") < (b.start || "99:99") ? -1 : 1;
+    });
+    var headers = ["Fecha","Hora inicio","Hora fin","Duración","Acción","Equipo/Empresa","Ubicación/Zona","Responsable","Contacto","Estado","Notas"];
+    var sep = ";";
+    function cell(v) { v = (v == null ? "" : String(v)); return '"' + v.replace(/"/g, '""') + '"'; }
+    var lines = [headers.map(cell).join(sep)];
+    rows.forEach(function (a) {
+      lines.push([a.date, a.start, a.end, durationText(a.start, a.end), a.action, a.team, a.location, a.owner, a.contact, statusLabel(a.status), a.notes].map(cell).join(sep));
+    });
+    var csv = "﻿" + lines.join("\r\n"); // BOM for Excel
+    var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "hoja-de-ruta-" + slug(ev.name) + ".csv";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+  function slug(s) { return (s || "evento").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "evento"; }
+
+  function printHeadHtml(extraMeta, pageNo, pageTotal) {
+    var ev = currentEvent();
+    var now = new Date().toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
+    var modeLabel = state.viewMode === "grid" ? "Parrilla (días × horas)" : "Lista cronológica";
+    var logo = state.logo
+      ? '<img class="ph-logo" src="' + state.logo + '" alt="Mono Producciones">'
+      : '<div class="ph-logo-txt">MONO PRODUCCIONES</div>';
+    var meta = (ev.place ? esc(ev.place) + " · " : "") + "Hoja de ruta (" + modeLabel + ") · Generada el " + now;
+    if (extraMeta) meta += " · " + esc(extraMeta);
+    if (pageTotal && pageTotal > 1) meta += " · Página " + pageNo + " de " + pageTotal;
+    return '<div class="ph-top">' + logo + '</div>' +
+      '<h1>' + esc(ev.name || "Hoja de ruta") + '</h1>' +
+      '<div class="meta">' + meta + '</div>';
+  }
+
+  // Lista: impresión vertical mediante el sistema (la parrilla usa el PDF horizontal nativo).
+  function printPdf() {
+    document.getElementById("search").value = "";
+    document.getElementById("filterTeam").value = "";
+    document.getElementById("printHead").innerHTML = printHeadHtml();
+    render();
+    setTimeout(function () {
+      var done = function () { window.removeEventListener("afterprint", done); };
+      window.addEventListener("afterprint", done);
+      window.print();
+      setTimeout(done, 1500);
+    }, 100);
+  }
+
+  // ---------- Seed ----------
+  function seed() {
+    var ev = currentEvent();
+    if (ev.actions.length && !confirm("Esto añadirá acciones de ejemplo al evento actual. ¿Continuar?")) return;
+    var today = new Date().toISOString().slice(0, 10);
+    var d2 = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    var sample = [
+      [today,"07:00","10:00","Montaje de escenario principal","Estructuras Titán","Escenario A","Marcos Ruiz","+34 600 111 222","hecho","Grúa y truss. Coordinar con seguridad."],
+      [today,"10:00","13:00","Instalación de sonido y line array","Sonido ProAudio","Escenario A","Laura Gil","laura@proaudio.es","en-curso","Pruebas de PA a las 12:30."],
+      [today,"11:00","14:00","Rigging de iluminación","Lumen Live","Escenario A","Diego Sanz","+34 600 333 444","pendiente",""],
+      [today,"15:00","16:00","Prueba de sonido artista 1","Sonido ProAudio","Escenario A","Laura Gil","","pendiente","Soundcheck banda telonera."],
+      [today,"18:00","18:30","Apertura de puertas","Accesos Segur","Entrada principal","Ana Pérez","+34 600 555 666","pendiente","Control de aforo y pulseras."],
+      [d2,"09:00","11:00","Desmontaje de escenario","Estructuras Titán","Escenario A","Marcos Ruiz","","pendiente","Carga en camiones antes de las 12:00."]
+    ];
+    sample.forEach(function (r) {
+      ev.actions.push({ id: uid(), date: r[0], start: r[1], end: r[2], action: r[3], team: r[4], location: r[5], owner: r[6], contact: r[7], status: r[8], notes: r[9] });
+    });
+    save(); render();
+  }
+
+  function clearAll() {
+    var ev = currentEvent();
+    if (!ev.actions.length) return;
+    if (!confirm("¿Vaciar todas las acciones de este evento? (El evento se conserva.)")) return;
+    ev.actions = []; stopEdit(); clearForm(); save(); render();
+  }
+
+  // ---------- Grid (days x hours) view ----------
+  function toMin(t) { if (!t) return null; var m = t.split(":"); return parseInt(m[0], 10) * 60 + parseInt(m[1], 10); }
+  function dayHeadHtml(iso) {
+    if (!iso) return '<div class="grid-dhead">Sin fecha</div>';
+    var d = new Date(iso + "T00:00:00");
+    if (isNaN(d)) return '<div class="grid-dhead">' + esc(iso) + '</div>';
+    var wd = d.toLocaleDateString("es-ES", { weekday: "long" });
+    var dm = d.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+    return '<div class="grid-dhead">' + esc(wd) + '<small>' + esc(dm) + '</small></div>';
+  }
+
+  function sortedDates(rows) {
+    var set = {};
+    rows.forEach(function (a) { set[a.date || ""] = true; });
+    return Object.keys(set).sort(function (a, b) { return (a || "9999-99-99") < (b || "9999-99-99") ? -1 : 1; });
+  }
+  function shortDate(iso) {
+    if (!iso) return "Sin fecha";
+    var d = new Date(iso + "T00:00:00"); if (isNaN(d)) return iso;
+    return d.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+  }
+  function dateRangeLabel(dates) {
+    if (!dates.length) return "";
+    if (dates.length === 1) return shortDate(dates[0]);
+    return shortDate(dates[0]) + " – " + shortDate(dates[dates.length - 1]);
+  }
+
+  // Build the grid HTML (.grid-scroll>.grid-wrap) for a given set of rows.
+  function buildGridHtml(rows) {
+    var dates = sortedDates(rows);
+    var timed = rows.filter(function (a) { return a.start; });
+    var allday = rows.filter(function (a) { return !a.start; });
+
+    var minM = 24 * 60, maxM = 0;
+    timed.forEach(function (a) {
+      var s = toMin(a.start); var e = a.end ? toMin(a.end) : s + 30;
+      if (e <= s) e = s + 30;
+      if (s < minM) minM = s; if (e > maxM) maxM = e;
+    });
+    if (minM > maxM) { minM = 8 * 60; maxM = 22 * 60; }
+    minM = Math.floor(minM / 60) * 60; maxM = Math.ceil(maxM / 60) * 60;
+    var scale = 0.95;
+    var bodyH = Math.max((maxM - minM) * scale, 120);
+
+    var byDate = {}; dates.forEach(function (d) { byDate[d] = []; });
+    timed.forEach(function (a) { byDate[a.date || ""].push(a); });
+    Object.keys(byDate).forEach(function (d) {
+      var items = byDate[d].sort(function (x, y) { return toMin(x.start) - toMin(y.start); });
+      var lanes = [];
+      items.forEach(function (a) {
+        var s = toMin(a.start), e = a.end ? toMin(a.end) : s + 30; if (e <= s) e = s + 30;
+        var placed = false;
+        for (var i = 0; i < lanes.length; i++) { if (lanes[i] <= s) { a._lane = i; lanes[i] = e; placed = true; break; } }
+        if (!placed) { a._lane = lanes.length; lanes.push(e); }
+      });
+      byDate[d]._lanes = Math.max(lanes.length, 1);
+    });
+
+    var alldayByDate = {}; dates.forEach(function (d) { alldayByDate[d] = []; });
+    allday.forEach(function (a) { alldayByDate[a.date || ""].push(a); });
+
+    var cols = "58px repeat(" + dates.length + ", minmax(150px, 1fr))";
+    var html = '<div class="grid-scroll"><div class="grid-wrap" style="grid-template-columns:' + cols + '">';
+    html += '<div class="grid-corner"></div>';
+    dates.forEach(function (d) { html += dayHeadHtml(d); });
+    html += '<div class="grid-gutter-allday">Sin hora / montaje</div>';
+    dates.forEach(function (d) {
+      var cell = '<div class="grid-allday-cell">';
+      alldayByDate[d].forEach(function (a) {
+        cell += '<span class="allday-chip" style="background:' + teamColor(a.team) + '" data-id="' + a.id + '" title="' + esc(a.action) + '">' + esc(a.action || "—") + '</span>';
+      });
+      cell += '</div>';
+      html += cell;
+    });
+    var gutter = '<div class="grid-gutter" style="height:' + bodyH + 'px">';
+    for (var h = minM; h <= maxM; h += 60) {
+      var top = (h - minM) * scale;
+      gutter += '<div class="hourline" style="top:' + top + 'px"></div>';
+      gutter += '<div class="hourlabel" style="top:' + top + 'px">' + ("0" + (Math.floor(h / 60) % 24)).slice(-2) + ':00</div>';
+    }
+    gutter += '</div>';
+    html += gutter;
+    dates.forEach(function (d) {
+      var col = '<div class="grid-col" style="height:' + bodyH + 'px">';
+      for (var hh = minM; hh <= maxM; hh += 60) col += '<div class="hourline" style="top:' + ((hh - minM) * scale) + 'px"></div>';
+      var lanes = byDate[d]._lanes || 1;
+      byDate[d].forEach(function (a) {
+        var s = toMin(a.start), e = a.end ? toMin(a.end) : s + 30; if (e <= s) e = s + 30;
+        var top = (s - minM) * scale, hgt = Math.max((e - s) * scale, 24);
+        var w = 100 / lanes, left = (a._lane || 0) * w;
+        col += '<div class="gblock" data-id="' + a.id + '" style="top:' + top + 'px;height:' + (hgt - 2) + 'px;left:' + left + '%;width:' + (w - 1) + '%;background:' + teamColor(a.team) + '" title="' + esc(a.action) + ' · ' + esc(a.team) + '">' +
+          '<div class="gt">' + esc(a.start) + (a.end ? '–' + esc(a.end) : '') + '</div>' +
+          '<div class="ga">' + esc(a.action || "") + '</div>' +
+          (hgt > 46 && a.team ? '<div style="opacity:.9">' + esc(a.team) + '</div>' : '') +
+          '</div>';
+      });
+      col += '</div>';
+      html += col;
+    });
+    html += '</div></div>';
+    return html;
+  }
+
+  function renderGrid() {
+    var ev = currentEvent();
+    document.getElementById("countPill").textContent = ev.actions.length + (ev.actions.length === 1 ? " acción" : " acciones");
+    var target = document.getElementById("roadmap");
+    var rows = visibleRows();
+    if (!rows.length) {
+      target.innerHTML = '<div class="empty no-print"><h3>' +
+        (ev.actions.length === 0 ? "Aún no hay acciones" : "Ningún resultado con este filtro") +
+        '</h3><p>Cambia a “Lista” para añadir acciones o ajusta el filtro.</p></div>';
+      return;
+    }
+    target.innerHTML = buildGridHtml(rows);
+    target.querySelectorAll("[data-id]").forEach(function (el) {
+      el.addEventListener("click", function () { setView("list"); startEdit(el.getAttribute("data-id")); });
+    });
+  }
+
+  // Split the parrilla into pages of ≤6 days (page 1 = first dates, page 2 = next…),
+  // each with its own repeated header. pageClass = 'print-page' (print) or 'page' (preview).
+  var DAYS_PER_PAGE = 7;
+  function gridPagesHtml(rows, pageClass) {
+    var dates = sortedDates(rows);
+    var chunks = [];
+    for (var i = 0; i < dates.length; i += DAYS_PER_PAGE) chunks.push(dates.slice(i, i + DAYS_PER_PAGE));
+    if (!chunks.length) chunks = [[]];
+    return chunks.map(function (ch, idx) {
+      var set = {}; ch.forEach(function (d) { set[d] = 1; });
+      var chRows = rows.filter(function (r) { return set[r.date || ""]; });
+      return '<div class="' + pageClass + '"><div class="print-head">' +
+        printHeadHtml(dateRangeLabel(ch), idx + 1, chunks.length) + '</div>' +
+        buildGridHtml(chRows) + '</div>';
+    }).join("");
+  }
+  function scaleGridPages(container) {
+    // Scale each grid with transform, and give its wrapper the SCALED box size so the
+    // print engine paginates correctly (avoids blank pages from oversized flow boxes).
+    container.querySelectorAll(".grid-scroll").forEach(function (scroll) {
+      var wrap = scroll.querySelector(".grid-wrap");
+      if (!wrap) return;
+      var w = wrap.scrollWidth, hgt = wrap.scrollHeight;
+      var s = Math.min(1031 / w, (703 - 150) / hgt, 1);
+      if (s < 1) {
+        wrap.style.transformOrigin = "top left";
+        wrap.style.transform = "scale(" + s + ")";
+        scroll.style.width = Math.ceil(w * s) + "px";
+        scroll.style.height = Math.ceil(hgt * s) + "px";
+        scroll.style.overflow = "hidden";
+      }
+    });
+  }
+
+  function setView(mode) {
+    state.viewMode = (mode === "grid") ? "grid" : "list";
+    save(); render();
+  }
+
+  // ---------- Native landscape-A4 PDF generator (bypasses window.print, which forces portrait here) ----------
+  function pdfSanitize(s) {
+    return String(s == null ? "" : s).replace(/[–—]/g, "-").replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/…/g, "...").replace(/[^\x00-\xFF]/g, "?");
+  }
+  function pdfEsc(s) { return pdfSanitize(s).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)"); }
+  function pdfTW(s, size) { return pdfSanitize(s).length * size * 0.5; }
+  function pdfTrunc(s, size, maxw) { s = pdfSanitize(s); if (pdfTW(s, size) <= maxw) return s; while (s.length > 1 && pdfTW(s + "..", size) > maxw) s = s.slice(0, -1); return s + ".."; }
+  function pdfWrap(s, size, maxw) {
+    s = pdfSanitize(s).replace(/\s+/g, " ").trim();
+    if (!s) return [""];
+    var words = s.split(" "), lines = [], cur = "";
+    for (var i = 0; i < words.length; i++) {
+      var word = words[i];
+      // hard-break a single word longer than the line
+      while (pdfTW(word, size) > maxw && word.length > 1) {
+        if (cur) { lines.push(cur); cur = ""; }
+        var cut = word.length;
+        while (cut > 1 && pdfTW(word.slice(0, cut), size) > maxw) cut--;
+        lines.push(word.slice(0, cut)); word = word.slice(cut);
+      }
+      var t = cur ? cur + " " + word : word;
+      if (pdfTW(t, size) <= maxw || !cur) cur = t;
+      else { lines.push(cur); cur = word; }
+    }
+    if (cur) lines.push(cur);
+    return lines.length ? lines : [""];
+  }
+  function pdfHex(c) { return [parseInt(c.slice(1, 3), 16) / 255, parseInt(c.slice(3, 5), 16) / 255, parseInt(c.slice(5, 7), 16) / 255]; }
+
+  function buildPDF(ev, rows, logo) {
+    var PW = 842, PH = 595, M = 26;
+    var dset = {}; rows.forEach(function (a) { dset[a.date || ""] = 1; });
+    var dates = Object.keys(dset).sort(function (a, b) { return (a || "9999") < (b || "9999") ? -1 : 1; });
+    var chunks = []; for (var i = 0; i < dates.length; i += 7) chunks.push(dates.slice(i, i + 7));
+    if (!chunks.length) chunks = [[]];
+    var now = new Date().toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
+
+    var pageContents = [];
+    chunks.forEach(function (ch, pi) {
+      var ops = [];
+      function rect(x, y, w, h, c, fill) { var C = pdfHex(c); ops.push((C.join(" ")) + (fill ? " rg " : " RG ") + x.toFixed(2) + " " + (PH - y - h).toFixed(2) + " " + w.toFixed(2) + " " + h.toFixed(2) + " re " + (fill ? "f" : "S")); }
+      function line(x1, y1, x2, y2, c, wdt) { var C = pdfHex(c); ops.push(C.join(" ") + " RG " + (wdt || 0.5) + " w " + x1.toFixed(2) + " " + (PH - y1).toFixed(2) + " m " + x2.toFixed(2) + " " + (PH - y2).toFixed(2) + " l S"); }
+      function txt(x, y, s, size, bold, c) { c = c || "#000000"; var C = pdfHex(c); ops.push("BT /" + (bold ? "F2" : "F1") + " " + size + " Tf " + C.join(" ") + " rg " + x.toFixed(2) + " " + (PH - y - size).toFixed(2) + " Td (" + pdfEsc(s) + ") Tj ET"); }
+
+      var top = M, logoH = 28;
+      if (logo) { var lw = logo.w * (logoH / logo.h); ops.push("q " + lw.toFixed(2) + " 0 0 " + logoH + " " + M.toFixed(2) + " " + (PH - top - logoH).toFixed(2) + " cm /Im0 Do Q"); }
+      else { txt(M, top + 8, "EL MONO PRODUCCIONES", 11, true, "#111111"); }
+      txt(M, top + logoH + 6, ev.name || "Hoja de ruta", 20, true, "#111111");
+      var meta = "Hoja de ruta (Parrilla dias x horas)" + (ev.place ? "  -  " + ev.place : "") + "   -   Generada el " + now +
+        (ch.length ? "   -   " + shortDate(ch[0]) + " a " + shortDate(ch[ch.length - 1]) : "") + (chunks.length > 1 ? "   -   Pagina " + (pi + 1) + " de " + chunks.length : "");
+      txt(M, top + logoH + 32, meta, 9, false, "#555555");
+      var headerBottom = top + logoH + 32 + 14;
+
+      var gx = M, gy = headerBottom + 4, gw = PW - 2 * M, gbottom = PH - M;
+      var gutterW = 40, ndays = ch.length || 1, dayW = (gw - gutterW) / ndays, dHeadH = 20;
+      var alldayByDate = {}, timedByDate = {}; ch.forEach(function (d) { alldayByDate[d] = []; timedByDate[d] = []; });
+      rows.forEach(function (a) { if (ch.indexOf(a.date || "") < 0) return; if (a.start) timedByDate[a.date || ""].push(a); else alldayByDate[a.date || ""].push(a); });
+      var maxAll = 1; ch.forEach(function (d) { maxAll = Math.max(maxAll, alldayByDate[d].length); });
+      var bandH = Math.min(maxAll * 12 + 6, 130);
+      var minM = 24 * 60, maxM = 0;
+      rows.forEach(function (a) { if (ch.indexOf(a.date || "") < 0 || !a.start) return; var s = toMin(a.start), e = a.end ? toMin(a.end) : s + 30; if (e <= s) e = s + 30; if (s < minM) minM = s; if (e > maxM) maxM = e; });
+      if (minM > maxM) { minM = 8 * 60; maxM = 22 * 60; }
+      minM = Math.floor(minM / 60) * 60; maxM = Math.ceil(maxM / 60) * 60;
+      var tTop = gy + dHeadH + bandH, tBottom = gbottom, scaleY = (tBottom - tTop) / (maxM - minM);
+
+      rect(gx, gy, gw, gbottom - gy, "#e5e7eb", false);
+      line(gx, gy + dHeadH, gx + gw, gy + dHeadH, "#111111", 1.2);
+      ch.forEach(function (d, di) {
+        var cx = gx + gutterW + di * dayW;
+        if (di > 0) line(cx, gy, cx, gbottom, "#e5e7eb", 0.5);
+        var wd = shortDate(d);
+        txt(cx + dayW / 2 - pdfTW(wd, 10) / 2, gy + 5, wd, 10, true, "#111111");
+      });
+      line(gx + gutterW, gy, gx + gutterW, gbottom, "#e5e7eb", 0.5);
+      txt(gx + 3, gy + dHeadH + 3, "SIN HORA", 6.5, true, "#6b7280");
+      line(gx, tTop, gx + gw, tTop, "#cbd5e1", 0.8);
+      ch.forEach(function (d, di) {
+        var cx = gx + gutterW + di * dayW;
+        alldayByDate[d].forEach(function (a, ai) {
+          var yy = gy + dHeadH + 3 + ai * 12; if (yy + 11 > tTop) return;
+          rect(cx + 2, yy, dayW - 4, 11, teamColor(a.team), true);
+          txt(cx + 5, yy + 2.5, pdfTrunc(a.action, 7, dayW - 12), 7, true, "#ffffff");
+        });
+      });
+      for (var hh = minM; hh <= maxM; hh += 60) {
+        var yy = tTop + (hh - minM) * scaleY;
+        line(gx, yy, gx + gw, yy, "#eef1f4", 0.5);
+        txt(gx + 4, yy + 1, ("0" + (Math.floor(hh / 60) % 24)).slice(-2) + ":00", 7, false, "#6b7280");
+      }
+      var TITLE = 6.5, LINEH = 7.4, TIMEH = 8.5, PADTOP = 2, PADBOT = 3;
+      ch.forEach(function (d, di) {
+        var cx = gx + gutterW + di * dayW;
+        var items = timedByDate[d].slice().sort(function (a, b) { return toMin(a.start) - toMin(b.start); });
+        items.forEach(function (a) { a._s = toMin(a.start); a._e = a.end ? toMin(a.end) : a._s + 30; if (a._e <= a._s) a._e = a._s + 30; });
+        // pass 1: pack by time to estimate column width
+        var L1 = [];
+        items.forEach(function (a) { var pl = false; for (var i = 0; i < L1.length; i++) { if (L1[i] <= a._s) { L1[i] = a._e; pl = true; break; } } if (!pl) L1.push(a._e); });
+        var nl0 = Math.max(L1.length, 1), w0 = (dayW - 4) / nl0;
+        // wrap titles + compute required height so the WHOLE title is visible; expand short tasks
+        items.forEach(function (a) {
+          a._lines = pdfWrap(a.action || "", TITLE, w0 - 6);
+          a._reqH = PADTOP + TIMEH + a._lines.length * LINEH + PADBOT;
+          a._effEnd = a._s + Math.max(a._e - a._s, a._reqH / scaleY);
+        });
+        // pass 2: pack by effective (visual) end so grown blocks don't overlap — they split into columns
+        var L2 = [];
+        items.forEach(function (a) { var pl = false; for (var i = 0; i < L2.length; i++) { if (L2[i] <= a._s) { a._l = i; L2[i] = a._effEnd; pl = true; break; } } if (!pl) { a._l = L2.length; L2.push(a._effEnd); } });
+        var nl = Math.max(L2.length, 1), w = (dayW - 4) / nl;
+        items.forEach(function (a) {
+          var lines = (nl !== nl0) ? pdfWrap(a.action || "", TITLE, w - 6) : a._lines;
+          var reqH = PADTOP + TIMEH + lines.length * LINEH + PADBOT;
+          var bh = Math.max((a._e - a._s) * scaleY, reqH);
+          var yy = tTop + (a._s - minM) * scaleY, bx = cx + 2 + (a._l || 0) * w;
+          rect(bx, yy, w - 1, bh - 1, teamColor(a.team), true);
+          txt(bx + 3, yy + PADTOP, a.start + (a.end ? "-" + a.end : ""), 6.8, true, "#ffffff");
+          lines.forEach(function (ln, li) { txt(bx + 3, yy + PADTOP + TIMEH + li * LINEH, ln, TITLE, false, "#ffffff"); });
+        });
+      });
+      pageContents.push(ops.join("\n"));
+    });
+
+    // Assemble objects
+    var pageNums = [], contentNums = [], next = 3;
+    pageContents.forEach(function () { pageNums.push(next++); contentNums.push(next++); });
+    var nF1 = next++, nF2 = next++, nImg = logo ? next++ : 0;
+    var out = [];
+    out[1] = "<</Type/Catalog/Pages 2 0 R>>";
+    out[2] = "<</Type/Pages/Kids[" + pageNums.map(function (n) { return n + " 0 R"; }).join(" ") + "]/Count " + pageContents.length + ">>";
+    var xobj = logo ? "/XObject<</Im0 " + nImg + " 0 R>>" : "";
+    pageContents.forEach(function (content, i) {
+      out[pageNums[i]] = "<</Type/Page/Parent 2 0 R/MediaBox[0 0 842 595]/Resources<</Font<</F1 " + nF1 + " 0 R/F2 " + nF2 + " 0 R>>" + xobj + ">>/Contents " + contentNums[i] + " 0 R>>";
+      out[contentNums[i]] = "<</Length " + content.length + ">>\nstream\n" + content + "\nendstream";
+    });
+    out[nF1] = "<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>";
+    out[nF2] = "<</Type/Font/Subtype/Type1/BaseFont/Helvetica-Bold/Encoding/WinAnsiEncoding>>";
+    if (logo) out[nImg] = "<</Type/XObject/Subtype/Image/Width " + logo.w + "/Height " + logo.h + "/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length " + logo.bytes.length + ">>\nstream\n" + logo.bytes + "\nendstream";
+
+    var pdf = "%PDF-1.4\n", off = [], total = pdf.length;
+    for (var k = 1; k < out.length; k++) { off[k] = total; var o = k + " 0 obj\n" + out[k] + "\nendobj\n"; pdf += o; total += o.length; }
+    var xp = total;
+    pdf += "xref\n0 " + out.length + "\n0000000000 65535 f \n";
+    for (var k2 = 1; k2 < out.length; k2++) pdf += (("0000000000" + off[k2]).slice(-10)) + " 00000 n \n";
+    pdf += "trailer\n<</Size " + out.length + "/Root 1 0 R>>\nstartxref\n" + xp + "\n%%EOF";
+    return pdf;
+  }
+
+  function logoToJpeg(cb) {
+    if (!state.logo) { cb(null); return; }
+    try {
+      var img = new Image();
+      img.onload = function () {
+        var h = 70, w = Math.max(1, Math.round(img.width * (h / img.height)));
+        var c = document.createElement("canvas"); c.width = w; c.height = h;
+        var ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h);
+        try { var durl = c.toDataURL("image/jpeg", 0.85); cb({ bytes: atob(durl.split(",")[1]), w: w, h: h }); }
+        catch (e) { cb(null); }
+      };
+      img.onerror = function () { cb(null); };
+      img.src = state.logo;
+    } catch (e) { cb(null); }
+  }
+
+  function downloadLandscapePdf() {
+    var ev = currentEvent();
+    var rows = visibleRows();
+    if (!rows.length) { alert("No hay acciones que exportar en este evento."); return; }
+    logoToJpeg(function (logo) {
+      var pdf = buildPDF(ev, rows, logo);
+      var bytes = new Uint8Array(pdf.length);
+      for (var i = 0; i < pdf.length; i++) bytes[i] = pdf.charCodeAt(i) & 0xff;
+      var blob = new Blob([bytes], { type: "application/pdf" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "hoja-de-ruta-" + slug(ev.name) + "-parrilla.pdf";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      closeModal();
+    });
+  }
+
+  // ---------- Preview modals ----------
+  function openModal(title, actionLabel, bodyHtml, onAction) {
+    document.getElementById("modalTitle").textContent = title;
+    var ab = document.getElementById("modalAction");
+    ab.textContent = actionLabel;
+    ab.onclick = onAction;
+    document.getElementById("modalBody").innerHTML = bodyHtml;
+    document.getElementById("modal").style.display = "flex";
+  }
+  function closeModal() { document.getElementById("modal").style.display = "none"; }
+
+  function buildExportRows() {
+    var ev = currentEvent();
+    return ev.actions.slice().sort(function (a, b) {
+      var da = (a.date || "9999"), db = (b.date || "9999");
+      if (da !== db) return da < db ? -1 : 1;
+      return (a.start || "99:99") < (b.start || "99:99") ? -1 : 1;
+    });
+  }
+
+  function openExcelPreview() {
+    var ev = currentEvent();
+    var rows = buildExportRows();
+    if (!rows.length) { alert("No hay acciones que exportar en este evento."); return; }
+    var heads = ["Fecha", "Inicio", "Fin", "Duración", "Acción", "Equipo/Empresa", "Ubicación/Zona", "Responsable", "Contacto", "Estado", "Notas"];
+    var h = '<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px;">Así se exportará <strong>' + esc(ev.name || "el evento") +
+      '</strong> a Excel (' + rows.length + ' filas · formato .csv, se abre en Excel/Numbers/Sheets).</div>' +
+      '<div class="xls-scroll"><table class="xls-table"><thead><tr>';
+    heads.forEach(function (x) { h += '<th>' + esc(x) + '</th>'; });
+    h += '</tr></thead><tbody>';
+    rows.forEach(function (a) {
+      var cells = [a.date, a.start, a.end, durationText(a.start, a.end), a.action, a.team, a.location, a.owner, a.contact, statusLabel(a.status), a.notes];
+      h += '<tr>' + cells.map(function (c) { return '<td>' + esc(c || "") + '</td>'; }).join("") + '</tr>';
+    });
+    h += '</tbody></table></div>';
+    openModal("Vista previa · Excel", "⬇︎ Descargar Excel (CSV)", h, function () { exportCsv(); });
+  }
+
+  function openPdfPreview() {
+    var ev = currentEvent();
+    if (!ev.actions.length) { alert("No hay acciones que imprimir en este evento."); return; }
+    var isGrid = state.viewMode === "grid";
+    var modeLabel = isGrid ? "Parrilla (días × horas)" : "Lista cronológica";
+    var note = '<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px;">Vista previa · <strong>' + esc(modeLabel) + '</strong> · ' +
+      (isGrid
+        ? 'se descarga un <strong>PDF en A4 horizontal</strong> (semana completa: hasta 7 días por hoja, cabecera con logo + evento repetida). Generado directamente para que se abra apaisado.'
+        : 'se imprime en <strong>A4 vertical</strong> mediante el sistema.') +
+      ' Cambia entre Lista/Parrilla antes de abrir esta vista para elegir el formato.</div>';
+    var body;
+    if (isGrid) {
+      body = note + gridPagesHtml(visibleRows(), "page");
+    } else {
+      var clone = document.getElementById("roadmap").innerHTML;
+      body = note + '<div class="page"><div class="print-head">' + printHeadHtml() + '</div>' + clone + '</div>';
+    }
+    if (isGrid) {
+      openModal("Vista previa · PDF horizontal", "⬇︎ Descargar PDF horizontal", body, function () { downloadLandscapePdf(); });
+      scaleGridPages(document.getElementById("modalBody"));
+    } else {
+      openModal("Vista previa · PDF imprimible", "🖨 Imprimir / Guardar PDF", body, function () { closeModal(); printPdf(); });
+    }
+  }
+
+  // ---------- Import ----------
+  var importParsed = null;
+
+  function importMsg(msg, warn) {
+    var el = document.getElementById("importMsg");
+    el.textContent = msg || ""; el.style.color = warn ? "var(--danger)" : "var(--muted)";
+  }
+  function trim(s) { return String(s == null ? "" : s).replace(/^\s+|\s+$/g, ""); }
+
+  function normTime(s) {
+    var m = String(s || "").match(/(\d{1,2})\s*:\s*(\d{2})/);
+    if (!m) return "";
+    var h = parseInt(m[1], 10), mm = m[2];
+    if (h > 23 || parseInt(mm, 10) > 59) return "";
+    return (h < 10 ? "0" : "") + h + ":" + mm;
+  }
+  function findTimes(s) {
+    var out = [], re = /(\d{1,2})\s*:\s*(\d{2})/g, m;
+    while ((m = re.exec(String(s || "")))) {
+      var h = parseInt(m[1], 10), mm = m[2];
+      if (h <= 23 && parseInt(mm, 10) <= 59) out.push((h < 10 ? "0" : "") + h + ":" + mm);
+    }
+    return out;
+  }
+  function normDate(s) {
+    s = trim(s); if (!s) return "";
+    var m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return m[1] + "-" + m[2] + "-" + m[3];
+    m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+    if (m) { var d = ("0" + m[1]).slice(-2), mo = ("0" + m[2]).slice(-2), y = m[3].length === 2 ? "20" + m[3] : m[3]; return y + "-" + mo + "-" + d; }
+    return "";
+  }
+  function splitRow(line) {
+    if (line.indexOf("\t") >= 0) return line.split("\t").map(trim);
+    if (/\s\|\s/.test(line) || /^\|/.test(line)) return line.replace(/^\||\|$/g, "").split("|").map(trim);
+    return line.split(/\s{2,}/).map(trim);
+  }
+  function parseDelimited(text) {
+    var lines = text.split(/\r?\n/).map(function (l) { return l.replace(/\s+$/, ""); }).filter(function (l) { return trim(l) !== ""; });
+    var headers = null, headerIdx = -1;
+    for (var i = 0; i < lines.length; i++) {
+      var cells = splitRow(lines[i]);
+      if (cells.filter(function (c) { return c !== ""; }).length >= 3) { headers = cells.map(function (h, k) { return h || ("Columna " + (k + 1)); }); headerIdx = i; break; }
+    }
+    if (!headers) return null;
+    var records = [];
+    for (var j = headerIdx + 1; j < lines.length; j++) {
+      var c = splitRow(lines[j]);
+      if (c.filter(function (x) { return x !== ""; }).length < 2) continue;
+      var rec = {};
+      for (var k = 0; k < headers.length; k++) rec[headers[k]] = c[k] != null ? c[k] : "";
+      records.push(rec);
+    }
+    return { headers: headers, records: records };
+  }
+  function guessCol(headers, patterns) {
+    for (var p = 0; p < patterns.length; p++)
+      for (var i = 0; i < headers.length; i++)
+        if (patterns[p].test(headers[i] || "")) return headers[i];
+    return "";
+  }
+  function coerceRow(o) {
+    o = o || {};
+    return {
+      date: normDate(o.date || o.fecha || ""),
+      start: normTime(o.start || o.inicio || o.hora || ""),
+      end: normTime(o.end || o.fin || ""),
+      action: trim(o.action || o.accion || o.acción || o.artista || ""),
+      team: trim(o.team || o.equipo || o.empresa || ""),
+      location: trim(o.location || o.ubicacion || o.zona || ""),
+      owner: trim(o.owner || o.responsable || ""),
+      contact: trim(o.contact || o.contacto || ""),
+      status: (o.status === "hecho" || o.status === "en-curso") ? o.status : "pendiente",
+      notes: trim(o.notes || o.notas || "")
+    };
+  }
+
+  function parseImportText(useAI) {
+    var text = document.getElementById("importText").value;
+    if (!trim(text)) { importMsg("Pega primero el contenido de tu hoja.", true); return; }
+    // native JSON?
+    var t = trim(text);
+    if (t[0] === "[" || t[0] === "{") {
+      try {
+        var arr = JSON.parse(t); if (!Array.isArray(arr)) arr = [arr];
+        importParsed = { native: true, rows: arr.map(coerceRow) };
+        importMsg(importParsed.rows.length + " filas leídas (JSON). Revisa y confirma.");
+        renderImportUI(); return;
+      } catch (e) { /* fall through */ }
+    }
+    if (useAI) { parseWithAI(text); return; }
+    var parsed = parseDelimited(text);
+    if (!parsed) { importMsg("No detecté una tabla. Prueba con “Interpretar con IA”.", true); return; }
+    var H = parsed.headers;
+    importParsed = {
+      native: false, headers: H, records: parsed.records,
+      mapping: {
+        action: guessCol(H, [/artista|acci|action|task|tarea|evento|montaje/i]),
+        time: guessCol(H, [/showtime/i, /sound ?check/i, /hora|inicio|start/i, /set ?up/i]),
+        end: guessCol(H, [/curfew|fin|end/i]),
+        team: guessCol(H, [/equipo|empresa|team|compa/i]),
+        date: guessCol(H, [/fecha|^d[ií]a$|date/i]),
+        location: guessCol(H, [/ubicaci|zona|lugar|sala|escenario|stage|location/i]),
+        owner: guessCol(H, [/responsable|owner/i]),
+        contact: guessCol(H, [/contacto|tel|phone|email|correo/i])
+      },
+      defTeam: "", defDate: currentEvent().actions.length ? "" : (document.getElementById("fDate").value || "")
+    };
+    importMsg(parsed.records.length + " filas detectadas. Ajusta el mapeo y confirma.");
+    renderImportUI();
+  }
+
+  function parseWithAI(text) {
+    if (!window.cowork || !window.cowork.askClaude) {
+      importMsg("La interpretación con IA no está disponible aquí. Usa “Analizar texto”.", true); return;
+    }
+    importMsg("Interpretando con IA…");
+    var prompt = "Convierte el siguiente contenido de una hoja de evento en un array JSON válido. " +
+      "Cada elemento debe tener las claves: date (YYYY-MM-DD o vacío), start (HH:MM o vacío), end (HH:MM o vacío), " +
+      "action (texto de la acción o artista), team (equipo/empresa o vacío), location, owner, contact, status ('pendiente'), notes (resto de datos útiles). " +
+      "Interpreta rangos como '17:00 - 17:30' repartiéndolos en start y end. Si una fila tiene varias franjas (load in, set up, soundcheck, changeover), usa la principal en start/end y mete el resto en notes. " +
+      "Si es un calendario por días, crea una fila por cada tarea de cada día. Devuelve SOLO el array JSON, sin texto adicional.";
+    Promise.resolve(window.cowork.askClaude(prompt, [text])).then(function (res) {
+      var s = typeof res === "string" ? res : (res && (res.text || res.output || res.content || res.result || res.message)) || JSON.stringify(res);
+      var mm = String(s).match(/\[[\s\S]*\]/);
+      if (!mm) throw new Error("sin JSON");
+      var arr = JSON.parse(mm[0]);
+      importParsed = { native: true, rows: arr.map(coerceRow) };
+      importMsg(importParsed.rows.length + " filas interpretadas por IA. Revisa y confirma.");
+      renderImportUI();
+    }).catch(function () {
+      importMsg("No se pudo interpretar con IA. Prueba “Analizar texto” o revisa el formato.", true);
+    });
+  }
+
+  function computeImportRows() {
+    if (!importParsed) return [];
+    if (importParsed.native) {
+      var dTeam = trim((document.getElementById("impDefTeam") || {}).value || "");
+      var dDate = (document.getElementById("impDefDate") || {}).value || "";
+      return importParsed.rows.map(function (r) {
+        var c = Object.assign({}, r);
+        if (!c.team && dTeam) c.team = dTeam;
+        if (!c.date && dDate) c.date = dDate;
+        return c;
+      });
+    }
+    var M = importParsed.mapping, defTeam = trim((document.getElementById("impDefTeam") || {}).value || "");
+    var defDate = (document.getElementById("impDefDate") || {}).value || "";
+    return importParsed.records.map(function (rec) {
+      var times = M.time ? findTimes(rec[M.time]) : [];
+      var start = times[0] || "", end = times[1] || "";
+      if (M.end && rec[M.end]) { var te = findTimes(rec[M.end]); if (te[0] && !end) end = te[0]; }
+      var used = {}; [M.time, M.action, M.team, M.date, M.location, M.owner, M.contact, M.end].forEach(function (x) { if (x) used[x] = 1; });
+      var notes = [];
+      Object.keys(rec).forEach(function (h) { var v = trim(rec[h]); if (!used[h] && v && v !== "—" && v !== "-") notes.push(trim(h) + ": " + v); });
+      return {
+        date: (M.date && normDate(rec[M.date])) || defDate,
+        start: start, end: end,
+        action: M.action ? trim(rec[M.action]) : "",
+        team: (M.team && trim(rec[M.team])) || defTeam,
+        location: M.location ? trim(rec[M.location]) : "",
+        owner: M.owner ? trim(rec[M.owner]) : "",
+        contact: M.contact ? trim(rec[M.contact]) : "",
+        status: "pendiente", notes: notes.join(" · ")
+      };
+    }).filter(function (r) { return r.action || r.start || r.notes; });
+  }
+
+  function renderImportUI() {
+    var box = document.getElementById("importPreview");
+    if (!importParsed) { box.innerHTML = ""; return; }
+    var html = "";
+    // mapping controls (only for delimited)
+    if (!importParsed.native) {
+      var H = importParsed.headers, M = importParsed.mapping;
+      function opts(sel) { return '<option value="">—</option>' + H.map(function (h) { return '<option value="' + esc(h) + '"' + (h === sel ? " selected" : "") + '>' + esc(h) + '</option>'; }).join(""); }
+      html += '<div style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px;">' +
+        '<div style="font-size:11.5px;color:var(--muted);font-weight:700;margin-bottom:8px;">MAPEO DE COLUMNAS</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">' +
+        mapSel("Acción ←", "mapAction", opts(M.action)) +
+        mapSel("Hora (inicio/rango) ←", "mapTime", opts(M.time)) +
+        mapSel("Hora fin extra ←", "mapEnd", opts(M.end)) +
+        mapSel("Equipo/empresa ←", "mapTeam", opts(M.team)) +
+        mapSel("Fecha ←", "mapDate", opts(M.date)) +
+        mapSel("Ubicación ←", "mapLoc", opts(M.location)) +
+        mapSel("Responsable ←", "mapOwner", opts(M.owner)) +
+        mapSel("Contacto ←", "mapContact", opts(M.contact)) +
+        '</div></div>';
+    }
+    // batch defaults
+    html += '<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:10px;">' +
+      '<div><label style="font-size:11.5px;color:var(--muted);font-weight:600;display:block;margin-bottom:4px;">Equipo por defecto (filas sin equipo)</label>' +
+      '<input class="field" id="impDefTeam" style="min-width:200px;" placeholder="Ej. TSC / Producción"></div>' +
+      '<div><label style="font-size:11.5px;color:var(--muted);font-weight:600;display:block;margin-bottom:4px;">Fecha por defecto (filas sin fecha)</label>' +
+      '<input class="field" type="date" id="impDefDate"></div></div>';
+    html += '<div id="impPreviewList"></div>';
+    html += '<div style="display:flex;gap:8px;margin-top:12px;">' +
+      '<button class="btn primary" id="btnDoImport">Importar acciones</button>' +
+      '<button class="btn ghost" id="btnCancelImport">Cancelar</button></div>';
+    box.innerHTML = html;
+
+    // wire mapping selects
+    [["mapAction", "action"], ["mapTime", "time"], ["mapEnd", "end"], ["mapTeam", "team"], ["mapDate", "date"], ["mapLoc", "location"], ["mapOwner", "owner"], ["mapContact", "contact"]].forEach(function (pair) {
+      var el = document.getElementById(pair[0]);
+      if (el) el.addEventListener("change", function () { importParsed.mapping[pair[1]] = this.value; renderPreviewList(); });
+    });
+    var dt = document.getElementById("impDefTeam"), dd = document.getElementById("impDefDate");
+    if (dt) dt.addEventListener("input", renderPreviewList);
+    if (dd) dd.addEventListener("input", renderPreviewList);
+    document.getElementById("btnDoImport").addEventListener("click", doImport);
+    document.getElementById("btnCancelImport").addEventListener("click", function () { importParsed = null; renderImportUI(); importMsg(""); });
+    renderPreviewList();
+  }
+  function mapSel(label, id, options) {
+    return '<div><label style="font-size:11px;color:var(--muted);font-weight:600;display:block;margin-bottom:3px;">' + label + '</label>' +
+      '<select class="field" id="' + id + '">' + options + '</select></div>';
+  }
+  function renderPreviewList() {
+    var rows = computeImportRows();
+    var el = document.getElementById("impPreviewList");
+    if (!el) return;
+    if (!rows.length) { el.innerHTML = '<div style="color:var(--muted);font-size:12.5px;">No hay filas válidas con este mapeo.</div>'; return; }
+    var shown = rows.slice(0, 8);
+    var h = '<div style="font-size:11.5px;color:var(--muted);font-weight:700;margin-bottom:6px;">VISTA PREVIA (' + rows.length + ' acciones' + (rows.length > 8 ? ', mostrando 8' : '') + ')</div>' +
+      '<div style="overflow:auto;border:1px solid var(--line);border-radius:10px;"><table class="roadmap" style="min-width:640px;"><thead><tr>' +
+      '<th>Fecha</th><th>Inicio</th><th>Fin</th><th>Acción</th><th>Equipo</th><th>Notas</th></tr></thead><tbody>';
+    shown.forEach(function (r) {
+      h += '<tr><td>' + esc(r.date || "—") + '</td><td><strong>' + esc(r.start || "—") + '</strong></td><td>' + esc(r.end || "") +
+        '</td><td>' + esc(r.action || "") + '</td><td>' + esc(r.team || "") + '</td><td style="max-width:260px;color:var(--muted);font-size:12px;">' + esc(r.notes || "") + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    el.innerHTML = h;
+  }
+  function doImport() {
+    var rows = computeImportRows();
+    if (!rows.length) { importMsg("No hay filas para importar.", true); return; }
+    var missingDate = rows.filter(function (r) { return !r.date; }).length;
+    if (missingDate && !confirm(missingDate + " fila(s) no tienen fecha y quedarán sin fecha. ¿Importar igualmente?")) return;
+    var ev = currentEvent();
+    rows.forEach(function (r) { r.id = uid(); ev.actions.push(r); });
+    save(); render();
+    importParsed = null;
+    document.getElementById("importText").value = "";
+    document.getElementById("importPreview").innerHTML = "";
+    importMsg("✓ " + rows.length + " acciones importadas.");
+  }
+
+  // Import wiring
+  document.getElementById("importToggle").addEventListener("click", function () {
+    var b = document.getElementById("importBody"), c = document.getElementById("importChevron");
+    var open = b.style.display === "none";
+    b.style.display = open ? "block" : "none";
+    c.textContent = open ? "▾ cerrar" : "▸ abrir";
+  });
+  document.getElementById("btnParseLocal").addEventListener("click", function () { parseImportText(false); });
+  document.getElementById("btnParseAI").addEventListener("click", function () { parseImportText(true); });
+  document.getElementById("btnImportClear").addEventListener("click", function () {
+    document.getElementById("importText").value = ""; importParsed = null;
+    document.getElementById("importPreview").innerHTML = ""; importMsg("");
+  });
+  document.getElementById("importFile").addEventListener("change", function () {
+    var f = this.files && this.files[0]; if (!f) return;
+    var r = new FileReader();
+    r.onload = function () { document.getElementById("importText").value = r.result || ""; importMsg("Archivo cargado. Pulsa “Analizar texto”."); };
+    r.onerror = function () { importMsg("No se pudo leer el archivo.", true); };
+    r.readAsText(f);
+  });
+  (function () {
+    var dz = document.getElementById("dropZone");
+    ["dragover", "dragenter"].forEach(function (ev) { dz.addEventListener(ev, function (e) { e.preventDefault(); dz.style.borderColor = "var(--accent)"; }); });
+    ["dragleave", "drop"].forEach(function (ev) { dz.addEventListener(ev, function (e) { e.preventDefault(); dz.style.borderColor = "var(--line)"; }); });
+    dz.addEventListener("drop", function (e) {
+      var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (!f) return;
+      if (!/\.(csv|txt|tsv)$/i.test(f.name)) { importMsg("Suelta un .csv/.txt, o pega el texto. Para PDF/Word/Excel, cópialo y pégalo.", true); return; }
+      var r = new FileReader(); r.onload = function () { document.getElementById("importText").value = r.result || ""; importMsg("Archivo cargado. Pulsa “Analizar texto”."); }; r.readAsText(f);
+    });
+  })();
+
+  // ---------- Wire up ----------
+  document.getElementById("btnSave").addEventListener("click", saveAction);
+  document.getElementById("fAllDay").addEventListener("change", toggleAllDay);
+  document.getElementById("btnCancelEdit").addEventListener("click", function () { stopEdit(); clearForm(); });
+  document.getElementById("btnNewEvent").addEventListener("click", newEvent);
+  document.getElementById("btnDupEvent").addEventListener("click", dupEvent);
+  document.getElementById("btnDelEvent").addEventListener("click", delEvent);
+  document.getElementById("btnExportCsv").addEventListener("click", openExcelPreview);
+  document.getElementById("btnPrint").addEventListener("click", openPdfPreview);
+  document.getElementById("btnSeed").addEventListener("click", seed);
+  document.getElementById("btnClearAll").addEventListener("click", clearAll);
+  document.getElementById("vbList").addEventListener("click", function () { setView("list"); });
+  document.getElementById("vbGrid").addEventListener("click", function () { setView("grid"); });
+  document.getElementById("modalClose").addEventListener("click", closeModal);
+  document.getElementById("modal").addEventListener("click", function (e) { if (e.target === this) closeModal(); });
+
+  function refreshLogo() {
+    var img = document.getElementById("logoPreview"), rm = document.getElementById("logoRemove");
+    if (state.logo) { img.src = state.logo; img.style.display = ""; rm.style.display = ""; }
+    else { img.style.display = "none"; rm.style.display = "none"; }
+  }
+  document.getElementById("logoFile").addEventListener("change", function () {
+    var f = this.files && this.files[0]; if (!f) return;
+    if (!/^image\//.test(f.type)) { alert("Selecciona una imagen (PNG, JPG o SVG)."); return; }
+    var r = new FileReader();
+    r.onload = function () { state.logo = r.result; save(); refreshLogo(); };
+    r.readAsDataURL(f);
+    this.value = "";
+  });
+  document.getElementById("logoRemove").addEventListener("click", function () { state.logo = ""; save(); refreshLogo(); });
+
+  document.getElementById("eventSelect").addEventListener("change", function () {
+    state.currentEventId = this.value; stopEdit(); clearForm();
+    document.getElementById("search").value = ""; document.getElementById("filterTeam").value = "";
+    save(); render();
+  });
+  document.getElementById("eventName").addEventListener("input", function () { currentEvent().name = this.value; save(); renderEventControls(); });
+  document.getElementById("eventPlace").addEventListener("input", function () { currentEvent().place = this.value; save(); });
+  document.getElementById("search").addEventListener("input", render);
+  document.getElementById("filterTeam").addEventListener("change", render);
+
+  document.addEventListener("keydown", function (e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { saveAction(); }
+  });
+
+  // default date = today for convenience
+  if (!document.getElementById("fDate").value) document.getElementById("fDate").value = new Date().toISOString().slice(0, 10);
+
+  refreshLogo();
+  render();
+})();
+</script>
+</body>
+</html>
