@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Creador de Hojas de Ruta de Eventos</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  window.SUPABASE_URL = "https://tpmyljwdzaykqayxocvw.supabase.co";
+  window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwbXlsandkemF5a3FheXhvY3Z3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwOTU3MjksImV4cCI6MjA5ODY3MTcyOX0.dmw9n1EciQ0l2u6a1YVvm5qdJb7yR_XT1-p4CHFNujg";
+</script>
 <style>
   :root {
     color-scheme: light;
@@ -201,6 +206,20 @@
   .modal-body .page + .page { margin-top: 18px; }
   .print-page { background: #fff; }
 
+  /* Auth / cloud */
+  .auth-overlay { position: fixed; inset: 0; background: #12161d; display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+  .auth-card { background: #fff; border-radius: 16px; padding: 28px 26px; max-width: 370px; width: 100%; box-shadow: 0 24px 70px rgba(0,0,0,.45); text-align: center; }
+  .auth-logo-txt { font-size: 12px; font-weight: 800; letter-spacing: 1.5px; color: #111; }
+  .auth-card h2 { margin: 10px 0 2px; font-size: 20px; }
+  .auth-card p { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+  .auth-card label { display: block; text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; margin: 10px 0 4px; }
+  .auth-card input { width: 100%; }
+  .auth-card .btn { width: 100%; justify-content: center; margin-top: 16px; }
+  #authMsg { font-size: 12.5px; margin-top: 10px; min-height: 16px; }
+  #cloudBar { display: none; align-items: center; gap: 10px; background: #eef6ef; border: 1px solid #cfe6d4; border-radius: 10px; padding: 7px 12px; margin-bottom: 14px; font-size: 12.5px; flex-wrap: wrap; }
+  #cloudBar .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--hecho); }
+  #cloudStatus { color: var(--muted); }
+
   /* Print / PDF */
   @page { size: A4 portrait; margin: 12mm; }
   @media print {
@@ -226,12 +245,39 @@
 </style>
 </head>
 <body>
+
+<!-- Login overlay -->
+<div class="auth-overlay no-print" id="authOverlay">
+  <div class="auth-card">
+    <div class="auth-logo-txt">EL MONO PRODUCCIONES</div>
+    <h2>Hoja de Ruta</h2>
+    <p>Introduce el usuario y la contraseña del equipo.</p>
+    <label for="authEmail">Email</label>
+    <input class="field" type="email" id="authEmail" autocomplete="username" placeholder="equipo@ejemplo.com">
+    <label for="authPass">Contraseña</label>
+    <input class="field" type="password" id="authPass" autocomplete="current-password" placeholder="••••••••">
+    <button class="btn primary" id="authBtn">Entrar</button>
+    <div id="authMsg"></div>
+  </div>
+</div>
+
 <div class="wrap">
+
+  <div id="cloudBar" class="no-print">
+    <span class="dot"></span>
+    <strong>En la nube</strong>
+    <span>·</span>
+    <span id="cloudUser"></span>
+    <span id="cloudStatus"></span>
+    <div class="grow" style="flex:1"></div>
+    <button class="btn small ghost" id="cloudReload">↻ Recargar</button>
+    <button class="btn small ghost" id="cloudSignOut">Cerrar sesión</button>
+  </div>
 
   <div class="topbar no-print">
     <div>
       <h1>Creador de Hojas de Ruta de Eventos</h1>
-      <div class="sub">Escaleta cronológica de acciones por equipo · guardado automáticamente en este navegador</div>
+      <div class="sub">Escaleta cronológica de acciones por equipo · guardado en la nube del equipo</div>
     </div>
     <div class="grow"></div>
     <button class="btn" id="btnExportCsv">⬇︎ Excel (CSV)</button>
@@ -410,6 +456,75 @@
   if (state.viewMode !== "grid") state.viewMode = "list";
   var editingId = null;
 
+  // ---------- Cloud (Supabase) ----------
+  var CLOUD = (window.SUPABASE_URL && window.SUPABASE_ANON_KEY && window.supabase)
+    ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY) : null;
+  var cloudUser = null, cloudTimer = null, cloudUpdatedAt = null, applyingRemote = false;
+
+  function setCloudStatus(m, warn) { var e = document.getElementById("cloudStatus"); if (e) { e.textContent = m ? "· " + m : ""; e.style.color = warn ? "var(--danger)" : "var(--muted)"; } }
+  function authMsg(m, warn) { var e = document.getElementById("authMsg"); if (e) { e.textContent = m || ""; e.style.color = warn ? "var(--danger)" : "var(--muted)"; } }
+  function showAuth() { document.getElementById("authOverlay").style.display = "flex"; setTimeout(function(){ var el=document.getElementById("authEmail"); if(el) el.focus(); }, 50); }
+
+  function scheduleCloudSave() {
+    if (!CLOUD || !cloudUser || applyingRemote) return;
+    clearTimeout(cloudTimer);
+    setCloudStatus("Guardando…");
+    cloudTimer = setTimeout(saveCloud, 800);
+  }
+  function saveCloud() {
+    if (!CLOUD || !cloudUser) return Promise.resolve();
+    var payload = { owner: cloudUser.id, state: state, updated_at: new Date().toISOString() };
+    return CLOUD.from("app_state").upsert(payload, { onConflict: "owner" }).select("updated_at").maybeSingle()
+      .then(function (res) {
+        if (res.error) { setCloudStatus("Error al guardar", true); return; }
+        if (res.data) cloudUpdatedAt = res.data.updated_at;
+        setCloudStatus("Guardado ✓");
+      });
+  }
+  function loadCloud() {
+    if (!CLOUD || !cloudUser) return Promise.resolve();
+    return CLOUD.from("app_state").select("state,updated_at").eq("owner", cloudUser.id).maybeSingle()
+      .then(function (res) {
+        if (res.error) { setCloudStatus("Error al cargar", true); return; }
+        if (res.data && res.data.state && res.data.state.events) {
+          state = res.data.state;
+          if (state.viewMode !== "grid") state.viewMode = "list";
+          cloudUpdatedAt = res.data.updated_at;
+          try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
+          setCloudStatus("Cargado ✓");
+        } else {
+          return saveCloud(); // first time: push local up
+        }
+      });
+  }
+  function cloudSignIn() {
+    if (!CLOUD) return;
+    var email = document.getElementById("authEmail").value.trim();
+    var pass = document.getElementById("authPass").value;
+    if (!email || !pass) { authMsg("Introduce email y contraseña.", true); return; }
+    authMsg("Entrando…");
+    CLOUD.auth.signInWithPassword({ email: email, password: pass }).then(function (res) {
+      if (res.error) { authMsg(res.error.message || "No se pudo entrar.", true); return; }
+      afterLogin(res.data.user);
+    });
+  }
+  function afterLogin(user) {
+    cloudUser = user;
+    document.getElementById("authOverlay").style.display = "none";
+    var bar = document.getElementById("cloudBar"); bar.style.display = "flex";
+    document.getElementById("cloudUser").textContent = user.email || "";
+    document.getElementById("authPass").value = "";
+    return loadCloud().then(function () { refreshLogo(); render(); });
+  }
+  function cloudSignOut() {
+    if (!CLOUD) return;
+    CLOUD.auth.signOut().then(function () {
+      cloudUser = null;
+      document.getElementById("cloudBar").style.display = "none";
+      showAuth();
+    });
+  }
+
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
   function load() {
@@ -420,7 +535,7 @@
     var id = uid();
     return { currentEventId: id, events: [{ id: id, name: "Mi evento", place: "", actions: [] }] };
   }
-  function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {} }
+  function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {} scheduleCloudSave(); }
 
   function currentEvent() {
     var ev = state.events.find(function (e) { return e.id === state.currentEventId; });
@@ -1512,8 +1627,28 @@
   // default date = today for convenience
   if (!document.getElementById("fDate").value) document.getElementById("fDate").value = new Date().toISOString().slice(0, 10);
 
-  refreshLogo();
-  render();
+  // Auth / cloud wiring
+  if (document.getElementById("authBtn")) {
+    document.getElementById("authBtn").addEventListener("click", cloudSignIn);
+    document.getElementById("authPass").addEventListener("keydown", function (e) { if (e.key === "Enter") cloudSignIn(); });
+    document.getElementById("authEmail").addEventListener("keydown", function (e) { if (e.key === "Enter") document.getElementById("authPass").focus(); });
+    document.getElementById("cloudReload").addEventListener("click", function () { setCloudStatus("Recargando…"); loadCloud().then(function () { render(); }); });
+    document.getElementById("cloudSignOut").addEventListener("click", cloudSignOut);
+  }
+  // Refresh from cloud when the tab regains focus (lightweight sync between devices)
+  window.addEventListener("focus", function () { if (CLOUD && cloudUser) loadCloud().then(function () { render(); }); });
+
+  function init() {
+    refreshLogo();
+    render();
+    if (!CLOUD) return;
+    CLOUD.auth.getSession().then(function (res) {
+      var session = res && res.data && res.data.session;
+      if (session) { afterLogin(session.user); }
+      else { showAuth(); }
+    });
+  }
+  init();
 })();
 </script>
 </body>
