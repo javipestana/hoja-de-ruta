@@ -9,6 +9,10 @@
   window.SUPABASE_URL = "https://tpmyljwdzaykqayxocvw.supabase.co";
   window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwbXlsandkemF5a3FheXhvY3Z3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwOTU3MjksImV4cCI6MjA5ODY3MTcyOX0.dmw9n1EciQ0l2u6a1YVvm5qdJb7yR_XT1-p4CHFNujg";
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  if (window.pdfjsLib) window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+</script>
 <style>
   :root {
     color-scheme: light;
@@ -176,11 +180,15 @@
   .grid-wrap > div:last-child { border-right: none; }
   .grid-dhead { padding: 8px 6px; text-align: center; font-weight: 800; font-size: 12.5px; border-bottom: 2px solid var(--ink); text-transform: capitalize; background: #fafbfc; line-height: 1.2; }
   .grid-dhead small { display: block; color: var(--muted); font-weight: 600; font-size: 11px; }
-  .grid-corner { border-bottom: 2px solid var(--ink); background: #fafbfc; }
+  .grid-corner { border-bottom: 2px solid var(--ink); background: #fafbfc; position: sticky; left: 0; z-index: 4; }
   .grid-gutter-allday, .grid-allday-cell { border-bottom: 1px solid var(--line); background: #fcfcfd; padding: 4px; min-height: 34px; }
-  .grid-gutter-allday { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; display: flex; align-items: center; justify-content: center; font-weight: 700; text-align: center; }
-  .grid-gutter { position: relative; background: #fafbfc; width: 58px; }
+  .grid-gutter-allday { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; display: flex; align-items: center; justify-content: center; font-weight: 700; text-align: center; position: sticky; left: 0; z-index: 3; }
+  .grid-gutter { position: sticky; left: 0; z-index: 3; background: #fafbfc; width: 58px; }
   .grid-col { position: relative; }
+  .grid-dhead { position: sticky; top: 0; z-index: 3; }
+  .grid-corner { top: 0; z-index: 5; }
+  .grid-scroll { max-height: 78vh; }
+  .grid-scroll-hint { font-size: 12px; color: var(--muted); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
   .hourline { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line); pointer-events: none; }
   .hourlabel { position: absolute; right: 6px; font-size: 10px; color: var(--muted); transform: translateY(-6px); font-variant-numeric: tabular-nums; }
   .gblock { position: absolute; border-radius: 6px; padding: 3px 6px; color: #fff; overflow: hidden; font-size: 11px; line-height: 1.2; box-shadow: 0 1px 2px rgba(0,0,0,.18); cursor: pointer; }
@@ -323,8 +331,8 @@
     </div>
     <div id="importBody" style="display:none;margin-top:12px;">
       <p style="color:var(--muted);font-size:12.5px;margin:0 0 10px;">
-        Pega el contenido de tu hoja (showtime, soundcheck, tabla de Excel/Word, o texto) o suelta un archivo <strong>.csv / .txt</strong>.
-        Para <strong>PDF / Word / Excel</strong>: ábrelo, copia el contenido y pégalo aquí, o pídeselo a Claude en el chat para que lo convierta.
+        Suelta un <strong>PDF</strong>, <strong>.csv</strong> o <strong>.txt</strong> (se lee e interpreta solo), o pega el contenido de tu hoja
+        (showtime, soundcheck, tabla de Excel/Word, o texto). Para Word/Excel, cópialo y pégalo.
       </p>
       <div id="dropZone" style="border:1px dashed var(--line);border-radius:10px;padding:0;">
         <textarea id="importText" class="field" style="border:none;min-height:120px;resize:vertical;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;" placeholder="Pega aquí tu tabla…&#10;Ej.:&#10;ORDEN  ARTISTA  SHOWTIME  DURACIÓN&#10;1  DJ SET  17:00 - 17:30  30'"></textarea>
@@ -332,8 +340,8 @@
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center;">
         <button class="btn primary" id="btnParseLocal">Analizar texto</button>
         <button class="btn" id="btnParseAI">✨ Interpretar con IA</button>
-        <label class="btn ghost small" style="cursor:pointer;">📎 Archivo .csv/.txt
-          <input type="file" id="importFile" accept=".csv,.txt,text/*" style="display:none;">
+        <label class="btn ghost small" style="cursor:pointer;">📎 Archivo (PDF, CSV, TXT)
+          <input type="file" id="importFile" accept=".pdf,.csv,.txt,application/pdf,text/*" style="display:none;">
         </label>
         <button class="btn ghost small" id="btnImportClear" style="margin-left:auto;">Limpiar</button>
         <span id="importMsg" style="color:var(--muted);font-size:12px;"></span>
@@ -1014,7 +1022,9 @@
         '</h3><p>Cambia a “Lista” para añadir acciones o ajusta el filtro.</p></div>';
       return;
     }
-    target.innerHTML = buildGridHtml(rows);
+    var nd = sortedDates(rows).length;
+    var hint = nd > 7 ? '<div class="grid-scroll-hint no-print">↔ ' + nd + ' días — desliza en horizontal para verlos todos; la columna de horas queda fija. El PDF los reparte en hojas de 7.</div>' : '';
+    target.innerHTML = hint + buildGridHtml(rows);
     target.querySelectorAll("[data-id]").forEach(function (el) {
       el.addEventListener("click", function () { setView("list"); startEdit(el.getAttribute("data-id")); });
     });
@@ -1561,21 +1571,60 @@
     document.getElementById("importText").value = ""; importParsed = null;
     document.getElementById("importPreview").innerHTML = ""; importMsg("");
   });
-  document.getElementById("importFile").addEventListener("change", function () {
-    var f = this.files && this.files[0]; if (!f) return;
+  function extractPdfText(file) {
+    return file.arrayBuffer().then(function (buf) {
+      return window.pdfjsLib.getDocument({ data: buf }).promise;
+    }).then(function (pdf) {
+      var out = [], chain = Promise.resolve();
+      for (var p = 1; p <= pdf.numPages; p++) {
+        (function (n) {
+          chain = chain.then(function () {
+            return pdf.getPage(n).then(function (page) {
+              return page.getTextContent().then(function (tc) {
+                var lines = {};
+                tc.items.forEach(function (it) {
+                  if (!it.str) return;
+                  var y = Math.round(it.transform[5]);
+                  (lines[y] = lines[y] || []).push({ x: it.transform[4], s: it.str });
+                });
+                Object.keys(lines).sort(function (a, b) { return b - a; }).forEach(function (k) {
+                  var row = lines[k].sort(function (a, b) { return a.x - b.x; }).map(function (i) { return i.s; }).join("\t").replace(/\t{2,}/g, "\t").replace(/^\s+|\s+$/g, "");
+                  if (row) out.push(row);
+                });
+              });
+            });
+          });
+        })(p);
+      }
+      return chain.then(function () { return out.join("\n"); });
+    });
+  }
+  function loadImportFile(f) {
+    if (!f) return;
+    if (/\.pdf$/i.test(f.name) || f.type === "application/pdf") {
+      if (!window.pdfjsLib) { importMsg("El lector de PDF aún no cargó; reintenta en unos segundos o pega el texto.", true); return; }
+      importMsg("Leyendo PDF…");
+      extractPdfText(f).then(function (txt) {
+        document.getElementById("importText").value = txt;
+        if (trim(txt)) { importMsg("PDF leído (" + txt.split("\n").length + " líneas). Interpretando…"); parseImportText(false); }
+        else { importMsg("El PDF no tiene texto seleccionable (parece escaneado/imagen). Pega el texto a mano.", true); }
+      }).catch(function () { importMsg("No se pudo leer el PDF. Copia el texto y pégalo.", true); });
+      return;
+    }
     var r = new FileReader();
     r.onload = function () { document.getElementById("importText").value = r.result || ""; importMsg("Archivo cargado. Pulsa “Analizar texto”."); };
     r.onerror = function () { importMsg("No se pudo leer el archivo.", true); };
     r.readAsText(f);
-  });
+  }
+  document.getElementById("importFile").addEventListener("change", function () { loadImportFile(this.files && this.files[0]); });
   (function () {
     var dz = document.getElementById("dropZone");
     ["dragover", "dragenter"].forEach(function (ev) { dz.addEventListener(ev, function (e) { e.preventDefault(); dz.style.borderColor = "var(--accent)"; }); });
     ["dragleave", "drop"].forEach(function (ev) { dz.addEventListener(ev, function (e) { e.preventDefault(); dz.style.borderColor = "var(--line)"; }); });
     dz.addEventListener("drop", function (e) {
       var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (!f) return;
-      if (!/\.(csv|txt|tsv)$/i.test(f.name)) { importMsg("Suelta un .csv/.txt, o pega el texto. Para PDF/Word/Excel, cópialo y pégalo.", true); return; }
-      var r = new FileReader(); r.onload = function () { document.getElementById("importText").value = r.result || ""; importMsg("Archivo cargado. Pulsa “Analizar texto”."); }; r.readAsText(f);
+      if (!/\.(csv|txt|tsv|pdf)$/i.test(f.name) && f.type !== "application/pdf") { importMsg("Suelta un .pdf, .csv o .txt (o pega el texto).", true); return; }
+      loadImportFile(f);
     });
   })();
 
