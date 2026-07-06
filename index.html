@@ -175,7 +175,7 @@
 
   /* Grid (days x hours) view */
   .grid-scroll { overflow: auto; border-radius: 12px; }
-  .grid-wrap { display: grid; gap: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff; min-width: 620px; }
+  .grid-wrap { display: grid; gap: 0; border: 1px solid var(--line); border-radius: 12px; overflow: visible; background: #fff; width: max-content; min-width: 100%; }
   .grid-dhead, .grid-corner, .grid-allday-cell, .grid-col, .grid-gutter, .grid-gutter-allday { border-right: 1px solid var(--line); }
   .grid-wrap > div:last-child { border-right: none; }
   .grid-dhead { padding: 8px 6px; text-align: center; font-weight: 800; font-size: 12.5px; border-bottom: 2px solid var(--ink); text-transform: capitalize; background: #fafbfc; line-height: 1.2; }
