@@ -265,6 +265,7 @@
     <label for="authPass">Contraseña</label>
     <input class="field" type="password" id="authPass" autocomplete="current-password" placeholder="••••••••">
     <button class="btn primary" id="authBtn">Entrar</button>
+    <button class="btn" id="authOffline" style="width:100%;justify-content:center;margin-top:8px;">Continuar sin conexión (datos de este equipo)</button>
     <div id="authMsg"></div>
   </div>
 </div>
@@ -487,7 +488,8 @@
         if (res.error) { setCloudStatus("Error al guardar", true); return; }
         if (res.data) cloudUpdatedAt = res.data.updated_at;
         setCloudStatus("Guardado ✓");
-      });
+      })
+      .catch(function () { setCloudStatus("Sin conexión — cambios guardados en este equipo", true); });
   }
   function loadCloud() {
     if (!CLOUD || !cloudUser) return Promise.resolve();
@@ -503,7 +505,20 @@
         } else {
           return saveCloud(); // first time: push local up
         }
-      });
+      })
+      .catch(function () { setCloudStatus("Sin conexión — usando datos de este equipo", true); throw new Error("offline"); });
+  }
+  var offlineMode = false;
+  function enterOffline() {
+    offlineMode = true; cloudUser = null;
+    document.getElementById("authOverlay").style.display = "none";
+    var bar = document.getElementById("cloudBar"); bar.style.display = "flex";
+    bar.style.background = "#fef3c7"; bar.style.borderColor = "#f2d98c";
+    bar.querySelector(".dot").style.background = "var(--curso)";
+    bar.querySelector("strong").textContent = "Sin conexión";
+    document.getElementById("cloudUser").textContent = "usando los datos guardados en este equipo";
+    setCloudStatus("La nube no responde (¿proyecto pausado?). Los cambios se guardan aquí.");
+    refreshLogo(); render();
   }
   function cloudSignIn() {
     if (!CLOUD) return;
@@ -512,8 +527,20 @@
     if (!email || !pass) { authMsg("Introduce email y contraseña.", true); return; }
     authMsg("Entrando…");
     CLOUD.auth.signInWithPassword({ email: email, password: pass }).then(function (res) {
-      if (res.error) { authMsg(res.error.message || "No se pudo entrar.", true); return; }
+      if (res.error) {
+        var m = String(res.error.message || "");
+        if (/fetch|network/i.test(m)) authMsg("No hay conexión con la nube (proyecto pausado). Usa “Continuar sin conexión”.", true);
+        else authMsg(m || "No se pudo entrar.", true);
+        return;
+      }
+      offlineMode = false;
+      var bar = document.getElementById("cloudBar");
+      bar.style.background = ""; bar.style.borderColor = "";
+      bar.querySelector(".dot").style.background = "";
+      bar.querySelector("strong").textContent = "En la nube";
       afterLogin(res.data.user);
+    }).catch(function () {
+      authMsg("No hay conexión con la nube (proyecto pausado). Usa “Continuar sin conexión”.", true);
     });
   }
   function afterLogin(user) {
@@ -1679,13 +1706,17 @@
   // Auth / cloud wiring
   if (document.getElementById("authBtn")) {
     document.getElementById("authBtn").addEventListener("click", cloudSignIn);
+    document.getElementById("authOffline").addEventListener("click", enterOffline);
     document.getElementById("authPass").addEventListener("keydown", function (e) { if (e.key === "Enter") cloudSignIn(); });
     document.getElementById("authEmail").addEventListener("keydown", function (e) { if (e.key === "Enter") document.getElementById("authPass").focus(); });
-    document.getElementById("cloudReload").addEventListener("click", function () { setCloudStatus("Recargando…"); loadCloud().then(function () { render(); }); });
+    document.getElementById("cloudReload").addEventListener("click", function () {
+      if (!cloudUser) { location.reload(); return; }
+      setCloudStatus("Recargando…"); loadCloud().then(function () { render(); }).catch(function () { render(); });
+    });
     document.getElementById("cloudSignOut").addEventListener("click", cloudSignOut);
   }
   // Refresh from cloud when the tab regains focus (lightweight sync between devices)
-  window.addEventListener("focus", function () { if (CLOUD && cloudUser) loadCloud().then(function () { render(); }); });
+  window.addEventListener("focus", function () { if (CLOUD && cloudUser) loadCloud().then(function () { render(); }).catch(function () { setCloudStatus("Sin conexión", true); }); });
 
   function init() {
     refreshLogo();
@@ -1693,9 +1724,9 @@
     if (!CLOUD) return;
     CLOUD.auth.getSession().then(function (res) {
       var session = res && res.data && res.data.session;
-      if (session) { afterLogin(session.user); }
+      if (session) { Promise.resolve(afterLogin(session.user)).catch(function () { enterOffline(); }); }
       else { showAuth(); }
-    });
+    }).catch(function () { showAuth(); });
   }
   init();
 })();
