@@ -497,7 +497,13 @@
       .then(function (res) {
         if (res.error) { setCloudStatus("Error al cargar", true); return; }
         if (res.data && res.data.state && res.data.state.events) {
-          state = res.data.state;
+          var cloudState = res.data.state;
+          var localNewer = state && state.updatedAt && (!cloudState.updatedAt || state.updatedAt > cloudState.updatedAt);
+          if (localNewer) {
+            // Local work (e.g., done offline) is more recent than the cloud copy: push it up instead of overwriting it.
+            return saveCloud().then(function () { setCloudStatus("Cambios locales subidos a la nube ✓"); });
+          }
+          state = cloudState;
           if (state.viewMode !== "grid") state.viewMode = "list";
           cloudUpdatedAt = res.data.updated_at;
           try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
@@ -589,7 +595,7 @@
     var id = uid();
     return { currentEventId: id, events: [{ id: id, name: "Mi evento", place: "", actions: [] }] };
   }
-  function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {} scheduleCloudSave(); }
+  function save() { state.updatedAt = new Date().toISOString(); try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {} scheduleCloudSave(); }
 
   function currentEvent() {
     var ev = state.events.find(function (e) { return e.id === state.currentEventId; });
