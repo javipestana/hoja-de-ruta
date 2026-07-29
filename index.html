@@ -261,7 +261,7 @@
     <h2>Hoja de Ruta</h2>
     <p>Introduce el usuario y la contraseña del equipo.</p>
     <label for="authEmail">Email</label>
-    <input class="field" type="email" id="authEmail" autocomplete="username" placeholder="equipo@ejemplo.com">
+    <input class="field" type="email" id="authEmail" autocomplete="username" value="administracion@elmonoproducciones.com" placeholder="equipo@ejemplo.com">
     <label for="authPass">Contraseña</label>
     <input class="field" type="password" id="authPass" autocomplete="current-password" placeholder="••••••••">
     <button class="btn primary" id="authBtn">Entrar</button>
@@ -517,8 +517,19 @@
     bar.querySelector(".dot").style.background = "var(--curso)";
     bar.querySelector("strong").textContent = "Sin conexión";
     document.getElementById("cloudUser").textContent = "usando los datos guardados en este equipo";
+    document.getElementById("cloudSignOut").textContent = "Conectar a la nube";
     setCloudStatus("La nube no responde (¿proyecto pausado?). Los cambios se guardan aquí.");
     refreshLogo(); render();
+  }
+  // Quick reachability probe: is the cloud awake?
+  function probeCloud() {
+    return new Promise(function (resolve) {
+      var done = false;
+      var t = setTimeout(function () { if (!done) { done = true; resolve(false); } }, 4000);
+      fetch(window.SUPABASE_URL + "/auth/v1/health").then(function (r) {
+        if (!done) { done = true; clearTimeout(t); resolve(r.ok || r.status < 500); }
+      }).catch(function () { if (!done) { done = true; clearTimeout(t); resolve(false); } });
+    });
   }
   function cloudSignIn() {
     if (!CLOUD) return;
@@ -538,6 +549,7 @@
       bar.style.background = ""; bar.style.borderColor = "";
       bar.querySelector(".dot").style.background = "";
       bar.querySelector("strong").textContent = "En la nube";
+      document.getElementById("cloudSignOut").textContent = "Cerrar sesión";
       afterLogin(res.data.user);
     }).catch(function () {
       authMsg("No hay conexión con la nube (proyecto pausado). Usa “Continuar sin conexión”.", true);
@@ -553,11 +565,18 @@
   }
   function cloudSignOut() {
     if (!CLOUD) return;
+    if (offlineMode) { // button acts as "Conectar a la nube"
+      probeCloud().then(function (ok) {
+        if (ok) { authMsg(""); showAuth(); }
+        else { setCloudStatus("La nube sigue sin responder. Reactiva el proyecto en Supabase y prueba de nuevo.", true); }
+      });
+      return;
+    }
     CLOUD.auth.signOut().then(function () {
       cloudUser = null;
       document.getElementById("cloudBar").style.display = "none";
       showAuth();
-    });
+    }).catch(function () { enterOffline(); });
   }
 
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -1725,8 +1744,12 @@
     CLOUD.auth.getSession().then(function (res) {
       var session = res && res.data && res.data.session;
       if (session) { Promise.resolve(afterLogin(session.user)).catch(function () { enterOffline(); }); }
-      else { showAuth(); }
-    }).catch(function () { showAuth(); });
+      else {
+        probeCloud().then(function (ok) { if (ok) showAuth(); else enterOffline(); });
+      }
+    }).catch(function () {
+      probeCloud().then(function (ok) { if (ok) showAuth(); else enterOffline(); });
+    });
   }
   init();
 })();
